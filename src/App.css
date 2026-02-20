@@ -1,0 +1,281 @@
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a3a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a4a;
+}
+
+/* ============================================
+   COMBAT ARENA ANIMATIONS
+   ============================================ */
+
+/* Floating damage number */
+@keyframes float-damage {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  20% {
+    transform: translateY(-10px) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.8);
+  }
+}
+
+.animate-float-damage {
+  animation: float-damage 1s ease-out forwards;
+}
+
+/* Loot drop animation */
+@keyframes loot-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(10px) scale(1.2);
+  }
+
+  50% {
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.5);
+  }
+}
+
+.animate-loot-drop {
+  animation: loot-drop 1.5s ease-out forwards;
+}
+
+/* Slow spin for loot */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+/* Death animation */
+@keyframes death {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
+  }
+}
+
+.animate-death {
+  animation: death 0.3s ease-out forwards;
+}
+
+/* Spawn animation for new monsters */
+@keyframes spawn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0) translateX(50px);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2) translateX(0);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) translateX(0);
+  }
+}
+
+.animate-spawn {
+  animation: spawn 0.4s ease-out forwards;
+}
+
+/* Walking animation - subtle bobbing */
+@keyframes walk {
+
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) translateY(-3px);
+  }
+}
+
+.animate-walk {
+  animation: walk 0.4s ease-in-out infinite;
+}
+
+/* Attack line flash */
+@keyframes attack-line {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+}
+
+.animate-attack-line {
+  animation: attack-line 0.15s ease-out;
+  transform-origin: left center;
+}
+
+/* Floating ambient particles */
+@keyframes float-particle {
+
+  0%,
+  100% {
+    opacity: 0.1;
+    transform: translateY(0) translateX(0);
+  }
+
+  50% {
+    opacity: 0.3;
+    transform: translateY(-20px) translateX(10px);
+  }
+}
+
+.animate-float-particle {
+  animation: float-particle 4s ease-in-out infinite;
+}
+
+/* ============================================
+   LEGACY ANIMATIONS (keep for other components)
+   ============================================ */
+
+/* Floating damage number - old version */
+@keyframes floatUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1.2);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.8);
+  }
+}
+
+.animate-float-up {
+  animation: floatUp 0.8s ease-out forwards;
+}
+
+/* Pulse gold for important items */
+@keyframes pulse-gold {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(201, 162, 39, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(201, 162, 39, 0);
+  }
+}
+
+.animate-pulse-gold {
+  animation: pulse-gold 2s infinite;
+}
+
+/* Attack shake animation */
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-5px);
+  }
+
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.15s ease-in-out;
+}
+
+/* Item rarity glow effects */
+.item-magic {
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+
+.item-rare {
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+}
+
+.item-unique {
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.3);
+}
+
+/* Combat active indicator pulse */
+@keyframes combat-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.combat-active {
+  animation: combat-pulse 1s ease-in-out infinite;
+}

@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Custom theme variables */
+:root {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #12121a;
+  --color-bg-tertiary: #1a1a24;
+  --color-accent: #c9a227;
+  --color-accent-dim: #8b7019;
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+
+  /* Item rarities */
+  --color-normal: #9ca3af;
+  --color-magic: #3b82f6;
+  --color-rare: #eab308;
+  --color-unique: #f97316;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-bg-primary);
+  color: #e5e5e5;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+#root {
+  min-height: 100vh;
+}
