@@ -8,8 +8,10 @@ import type {
   Flask,
   GameScreen,
   PlayerSkill,
+  PlayerSupportGem,
+  SkillDefinition,
 } from '../types';
-import { 
+import {
   getDefaultPlayerStats, 
   getExperienceForLevel,
   calculatePlayerDamage,
@@ -17,16 +19,33 @@ import {
   checkLevelUp,
   computePlayerStats,
 } from '../lib/combat';
+import { canGemLevelUp } from '../lib/gems';
+import { getSkillRuntimeStats } from '../lib/skills';
 import { generateLoot } from '../lib/loot';
 import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, isInMeleeRange } from '../lib/monsters';
-import { mapById, maps, bossById, skillById, starterSkillIds } from '../data';
+import { mapById, maps, bossById, skillById, starterSkillIds, getBuyableSkills, getSkillPurchaseCost, supportGemById } from '../data';
 
 let logIdCounter = 0;
 const generateLogId = () => `log_${Date.now()}_${logIdCounter++}`;
+let supportGemInstanceCounter = 0;
+const generateSupportGemInstanceId = () => `support_${Date.now()}_${supportGemInstanceCounter++}`;
 
 const DEFAULT_SPAWN_INTERVAL = 3;
 const MAX_MONSTERS = 5;
 const FLASK_AUTO_USE_THRESHOLD = 0.5;
+const MAX_SUPPORT_SOCKETS = 5;
+
+function createPlayerSkill(definitionId: string): PlayerSkill {
+  return {
+    definitionId,
+    level: 1,
+    experience: 0,
+    currentCooldown: 0,
+    isActive: true, // All starter and purchased skills auto-use by default
+    maxSupportSockets: 1,
+    socketedSupportIds: [],
+  };
+}
 
 function createLifeFlask(): Flask {
   return {
@@ -50,12 +69,7 @@ function createStarterSkills(): (PlayerSkill | null)[] {
   
   for (let i = 0; i < 6; i++) {
     if (i < starterSkillIds.length) {
-      skills.push({
-        definitionId: starterSkillIds[i],
-        level: 1,
-        currentCooldown: 0,
-        isActive: true, // All starter skills are active by default
-      });
+      skills.push(createPlayerSkill(starterSkillIds[i]));
     } else {
       skills.push(null);
     }
@@ -91,6 +105,7 @@ function createInitialPlayer(): Player {
     exalted: 0,
     divine: 0,
     scouring: 1,
+    socketOrb: 0,
   };
 
   const stats = getDefaultPlayerStats();
@@ -117,6 +132,8 @@ function createInitialPlayer(): Player {
     },
     flasks: [createLifeFlask(), createManaFlask(), null, null, null], // 5 flask slots, 2 starter flasks
     skills: createStarterSkills(), // 6 skill slots
+    inactiveSkills: [],
+    supportGems: [],
     inventory: [],
     inventorySize: 30,
     currency: currencies,
@@ -158,6 +175,16 @@ interface GameStore extends GameState {
   navigateTo: (screen: GameScreen) => void;
   selectMap: (mapId: string) => void;
   stopFarming: () => void;
+  buySkill: (skillId: string) => void;
+  removeEquippedSkill: (slotIndex: number) => void;
+  equipInactiveSkill: (skillId: string) => void;
+  moveSkillSlot: (fromSlotIndex: number, toSlotIndex: number) => void;
+  levelUpSkillGem: (slotIndex: number) => void;
+  levelUpInactiveSkillGem: (skillId: string) => void;
+  levelUpSupportGem: (supportGemInstanceId: string) => void;
+  buySupportGem: (supportGemId: string) => void;
+  addSkillSocket: (slotIndex: number) => void;
+  toggleSupportGemSocket: (slotIndex: number, supportGemId: string) => void;
   gameTick: (deltaTime: number) => void;
   startBossFight: () => void;
   toggleAutoBossSpawn: () => void;
@@ -228,6 +255,350 @@ export const useGameStore = create<GameStore>((set, get) => ({
       playerAttackCooldown: 0,
     });
     get().addLog('playerHit', 'Returned to town');
+  },
+
+  buySkill: (skillId: string) => {
+    const state = get();
+    const skillDef = skillById.get(skillId);
+    if (!skillDef) return;
+
+    if (skillId === 'defaultAttack') {
+      get().addLog('playerHit', 'Strike is already known.');
+      return;
+    }
+
+    const alreadyOwned = state.player.skills.some(skill => skill?.definitionId === skillId)
+      || state.player.inactiveSkills.some(skill => skill.definitionId === skillId);
+    if (alreadyOwned) {
+      get().addLog('playerHit', `${skillDef.name} is already learned.`);
+      return;
+    }
+
+    if (skillDef.requiredLevel > state.player.level) {
+      get().addLog('playerHit', `Requires level ${skillDef.requiredLevel} to learn ${skillDef.name}.`);
+      return;
+    }
+
+    const buyableSkillIds = new Set(getBuyableSkills(state.player.level).map(skill => skill.id));
+    if (!buyableSkillIds.has(skillId)) {
+      get().addLog('playerHit', `${skillDef.name} is not available for purchase yet.`);
+      return;
+    }
+
+    const price = getSkillPurchaseCost(skillDef);
+    if (state.player.currency.transmutation < price) {
+      get().addLog('playerHit', `Need ${price} Transmutation to learn ${skillDef.name}.`);
+      return;
+    }
+
+    const emptySlotIndex = state.player.skills.findIndex(skill => skill === null);
+    const learnedSkill = createPlayerSkill(skillId);
+    const updatedSkills = [...state.player.skills];
+    const updatedInactiveSkills = [...state.player.inactiveSkills];
+
+    if (emptySlotIndex >= 0) {
+      updatedSkills[emptySlotIndex] = learnedSkill;
+    } else {
+      updatedInactiveSkills.push(learnedSkill);
+    }
+
+    set({
+      player: {
+        ...state.player,
+        skills: updatedSkills,
+        inactiveSkills: updatedInactiveSkills,
+        currency: {
+          ...state.player.currency,
+          transmutation: state.player.currency.transmutation - price,
+        },
+      },
+    });
+
+    if (emptySlotIndex >= 0) {
+      get().addLog('skillUse', `📘 Learned ${skillDef.name}!`);
+    } else {
+      get().addLog('skillUse', `📘 Learned ${skillDef.name} (stored as inactive).`);
+    }
+  },
+
+  removeEquippedSkill: (slotIndex: number) => {
+    const state = get();
+    const targetSkill = state.player.skills[slotIndex];
+    if (!targetSkill) return;
+
+    const updatedSkills = [...state.player.skills];
+    updatedSkills[slotIndex] = null;
+
+    set({
+      player: {
+        ...state.player,
+        skills: updatedSkills,
+        inactiveSkills: [...state.player.inactiveSkills, targetSkill],
+      },
+    });
+
+    const skillDef = skillById.get(targetSkill.definitionId);
+    get().addLog('skillUse', `📦 Removed ${skillDef?.name || 'skill'} from skill bar.`);
+  },
+
+  equipInactiveSkill: (skillId: string) => {
+    const state = get();
+    const inactiveIndex = state.player.inactiveSkills.findIndex(skill => skill.definitionId === skillId);
+    if (inactiveIndex === -1) return;
+
+    const emptySlotIndex = state.player.skills.findIndex(skill => skill === null);
+    if (emptySlotIndex === -1) {
+      get().addLog('playerHit', 'No free slot on skill bar. Remove or move a skill first.');
+      return;
+    }
+
+    const updatedSkills = [...state.player.skills];
+    const updatedInactiveSkills = [...state.player.inactiveSkills];
+    const [skillToEquip] = updatedInactiveSkills.splice(inactiveIndex, 1);
+    updatedSkills[emptySlotIndex] = skillToEquip;
+
+    set({
+      player: {
+        ...state.player,
+        skills: updatedSkills,
+        inactiveSkills: updatedInactiveSkills,
+      },
+    });
+
+    const skillDef = skillById.get(skillToEquip.definitionId);
+    get().addLog('skillUse', `📥 Equipped ${skillDef?.name || 'skill'} to slot ${emptySlotIndex + 1}.`);
+  },
+
+  moveSkillSlot: (fromSlotIndex: number, toSlotIndex: number) => {
+    const state = get();
+    const size = state.player.skills.length;
+
+    if (fromSlotIndex < 0 || fromSlotIndex >= size || toSlotIndex < 0 || toSlotIndex >= size) return;
+    if (fromSlotIndex === toSlotIndex) return;
+
+    const updatedSkills = [...state.player.skills];
+    const movedSkill = updatedSkills[fromSlotIndex];
+    updatedSkills[fromSlotIndex] = updatedSkills[toSlotIndex];
+    updatedSkills[toSlotIndex] = movedSkill;
+
+    set({
+      player: {
+        ...state.player,
+        skills: updatedSkills,
+      },
+    });
+  },
+
+  levelUpSkillGem: (slotIndex: number) => {
+    const state = get();
+    const targetSkill = state.player.skills[slotIndex];
+    if (!targetSkill) return;
+    const skillDef = skillById.get(targetSkill.definitionId);
+    if (!skillDef) return;
+
+    if (!canGemLevelUp(targetSkill.level, targetSkill.experience, skillDef.gemTotalExperienceByLevel)) return;
+
+    const updatedSkills = [...state.player.skills];
+    updatedSkills[slotIndex] = {
+      ...targetSkill,
+      level: targetSkill.level + 1,
+    };
+
+    set({
+      player: {
+        ...state.player,
+        skills: updatedSkills,
+      },
+    });
+
+    get().addLog('levelUp', `💎 ${skillDef?.name || 'Gem'} reached level ${targetSkill.level + 1}!`);
+  },
+
+  levelUpInactiveSkillGem: (skillId: string) => {
+    const state = get();
+    const inactiveIndex = state.player.inactiveSkills.findIndex(skill => skill.definitionId === skillId);
+    if (inactiveIndex === -1) return;
+
+    const targetSkill = state.player.inactiveSkills[inactiveIndex];
+    const skillDef = skillById.get(targetSkill.definitionId);
+    if (!skillDef) return;
+    if (!canGemLevelUp(targetSkill.level, targetSkill.experience, skillDef.gemTotalExperienceByLevel)) return;
+
+    const updatedInactiveSkills = [...state.player.inactiveSkills];
+    updatedInactiveSkills[inactiveIndex] = {
+      ...targetSkill,
+      level: targetSkill.level + 1,
+    };
+
+    set({
+      player: {
+        ...state.player,
+        inactiveSkills: updatedInactiveSkills,
+      },
+    });
+
+    get().addLog('levelUp', `💎 ${skillDef?.name || 'Gem'} reached level ${targetSkill.level + 1}!`);
+  },
+
+  levelUpSupportGem: (supportGemInstanceId: string) => {
+    const state = get();
+    const supportIndex = state.player.supportGems.findIndex(gem => gem.instanceId === supportGemInstanceId);
+    if (supportIndex === -1) return;
+
+    const supportGemInstance = state.player.supportGems[supportIndex];
+    if (!canGemLevelUp(supportGemInstance.level, supportGemInstance.experience)) return;
+
+    const updatedSupportGems = [...state.player.supportGems];
+    updatedSupportGems[supportIndex] = {
+      ...supportGemInstance,
+      level: supportGemInstance.level + 1,
+    };
+
+    set({
+      player: {
+        ...state.player,
+        supportGems: updatedSupportGems,
+      },
+    });
+
+    const supportDef = supportGemById.get(supportGemInstance.definitionId);
+    get().addLog('levelUp', `💠 ${supportDef?.name || 'Support Gem'} reached level ${supportGemInstance.level + 1}!`);
+  },
+
+  buySupportGem: (supportGemId: string) => {
+    const state = get();
+    const supportGem = supportGemById.get(supportGemId);
+    if (!supportGem) return;
+
+    if (supportGem.requiredLevel > state.player.level) {
+      get().addLog('playerHit', `Requires level ${supportGem.requiredLevel} to buy ${supportGem.name}.`);
+      return;
+    }
+
+    const currencyAmount = state.player.currency[supportGem.costCurrency];
+    if (currencyAmount < supportGem.costAmount) {
+      get().addLog('playerHit', `Need ${supportGem.costAmount} ${supportGem.costCurrency} to buy ${supportGem.name}.`);
+      return;
+    }
+
+    const newSupportGem: PlayerSupportGem = {
+      instanceId: generateSupportGemInstanceId(),
+      definitionId: supportGemId,
+      level: 1,
+      experience: 0,
+    };
+
+    set({
+      player: {
+        ...state.player,
+        supportGems: [...state.player.supportGems, newSupportGem],
+        currency: {
+          ...state.player.currency,
+          [supportGem.costCurrency]: currencyAmount - supportGem.costAmount,
+        },
+      },
+    });
+
+    get().addLog('skillUse', `💠 Bought ${supportGem.name}.`);
+  },
+
+  addSkillSocket: (slotIndex: number) => {
+    const state = get();
+    const targetSkill = state.player.skills[slotIndex];
+    if (!targetSkill) return;
+
+    if (state.player.currency.socketOrb < 1) {
+      get().addLog('playerHit', 'Need a Socket Orb to add a skill socket.');
+      return;
+    }
+
+    if (targetSkill.maxSupportSockets >= MAX_SUPPORT_SOCKETS) {
+      get().addLog('playerHit', 'This skill already has the maximum sockets.');
+      return;
+    }
+
+    const updatedSkills = [...state.player.skills];
+    updatedSkills[slotIndex] = {
+      ...targetSkill,
+      maxSupportSockets: targetSkill.maxSupportSockets + 1,
+    };
+
+    set({
+      player: {
+        ...state.player,
+        skills: updatedSkills,
+        currency: {
+          ...state.player.currency,
+          socketOrb: state.player.currency.socketOrb - 1,
+        },
+      },
+    });
+
+    const skillDef = skillById.get(targetSkill.definitionId);
+    get().addLog('skillUse', `🟢 Added a socket to ${skillDef?.name || 'skill'}.`);
+  },
+
+  toggleSupportGemSocket: (slotIndex: number, supportGemId: string) => {
+    const state = get();
+    const targetSkill = state.player.skills[slotIndex];
+    const supportGem = supportGemById.get(supportGemId);
+    if (!targetSkill || !supportGem) return;
+
+    const skillDef = skillById.get(targetSkill.definitionId);
+    if (!skillDef || !supportGem.compatibleSkillTypes.includes(skillDef.type)) {
+      get().addLog('playerHit', `${supportGem.name} cannot support that skill.`);
+      return;
+    }
+
+    const supportGemByInstanceId = new Map(state.player.supportGems.map(gem => [gem.instanceId, gem]));
+    const socketedSupportIds = [...targetSkill.socketedSupportIds];
+    const socketedInstanceForDefinition = socketedSupportIds.find(instanceId => {
+      const socketedGem = supportGemByInstanceId.get(instanceId);
+      return socketedGem?.definitionId === supportGemId;
+    });
+
+    if (socketedInstanceForDefinition) {
+      const updatedSkills = [...state.player.skills];
+      updatedSkills[slotIndex] = {
+        ...targetSkill,
+        socketedSupportIds: socketedSupportIds.filter(id => id !== socketedInstanceForDefinition),
+      };
+      set({ player: { ...state.player, skills: updatedSkills } });
+      get().addLog('skillUse', `🔧 Removed ${supportGem.name} from ${skillDef.name}.`);
+      return;
+    }
+
+    if (socketedSupportIds.length >= targetSkill.maxSupportSockets) {
+      get().addLog('playerHit', `${skillDef.name} has no free support sockets.`);
+      return;
+    }
+
+    const usedInstanceIds = new Set<string>();
+    state.player.skills.forEach(skill => {
+      if (!skill) return;
+      skill.socketedSupportIds.forEach(id => usedInstanceIds.add(id));
+    });
+    state.player.inactiveSkills.forEach(skill => {
+      skill.socketedSupportIds.forEach(id => usedInstanceIds.add(id));
+    });
+
+    const availableSupportInstance = state.player.supportGems.find(gem =>
+      gem.definitionId === supportGemId && !usedInstanceIds.has(gem.instanceId)
+    );
+
+    if (!availableSupportInstance) {
+      get().addLog('playerHit', `No free copies of ${supportGem.name}. Buy another one.`);
+      return;
+    }
+
+    const updatedSkills = [...state.player.skills];
+    updatedSkills[slotIndex] = {
+      ...targetSkill,
+      socketedSupportIds: [...socketedSupportIds, availableSupportInstance.instanceId],
+    };
+
+    set({ player: { ...state.player, skills: updatedSkills } });
+    get().addLog('skillUse', `🔗 Linked ${supportGem.name} to ${skillDef.name}.`);
   },
   
   startBossFight: () => {
@@ -366,75 +737,86 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let lifestealAmount = 0;
     
     if (targetMonster && playerAttackCooldown <= 0) {
-      // Priority: AOE skills if multiple targets, then highest damage skill that's ready
-      let bestSkill: PlayerSkill | null = null;
-      let bestSkillDef = null;
-      
-      for (const skill of player.skills) {
+      type SkillCandidate = {
+        slotIndex: number;
+        skillDef: SkillDefinition;
+        runtime: ReturnType<typeof getSkillRuntimeStats>;
+      };
+
+      const orderedCandidates: SkillCandidate[] = [];
+
+      for (let slotIndex = 0; slotIndex < player.skills.length; slotIndex++) {
+        const skill = player.skills[slotIndex];
         if (!skill || !skill.isActive) continue;
         if (skill.currentCooldown > 0) continue;
         
         const skillDef = skillById.get(skill.definitionId);
         if (!skillDef) continue;
-        if (skillDef.manaCost > player.currentMana) continue;
-        
-        const isAoe = (skillDef.aoeRadius && skillDef.aoeRadius > 1);
-        const isBetterAoe = isAoe && monstersInRange.length > 1;
-        const currentBestIsAoe = bestSkillDef?.aoeRadius && bestSkillDef.aoeRadius > 1;
-        
-        if (!bestSkill || 
-            (isBetterAoe && !currentBestIsAoe) ||
-            (skillDef.damageMultiplier + (skillDef.addedDamageMax || 0) / 10 > 
-             (bestSkillDef?.damageMultiplier || 0) + ((bestSkillDef?.addedDamageMax || 0) / 10))) {
-          bestSkill = skill;
-          bestSkillDef = skillDef;
-        }
+        const runtime = getSkillRuntimeStats(skillDef, skill, player.supportGems);
+        if (runtime.manaCost > player.currentMana) continue;
+
+        orderedCandidates.push({
+          slotIndex,
+          skillDef,
+          runtime,
+        });
       }
-      
-      if (bestSkill && bestSkillDef) {
+
+      const bestCandidate = orderedCandidates.find(candidate => candidate.skillDef.id !== 'defaultAttack')
+        || orderedCandidates[0]
+        || null;
+
+      if (bestCandidate) {
+        const { skillDef: bestSkillDef, runtime } = bestCandidate;
         const { damage: weaponDamage, isCrit } = calculatePlayerDamage(player);
         
-        let skillDamage = weaponDamage * bestSkillDef.damageMultiplier;
+        let skillDamage = weaponDamage * runtime.damageMultiplier;
         
-        if (bestSkillDef.addedDamageMin !== undefined && bestSkillDef.addedDamageMax !== undefined) {
-          const addedDamage = bestSkillDef.addedDamageMin + 
-            Math.random() * (bestSkillDef.addedDamageMax - bestSkillDef.addedDamageMin);
+        if (runtime.addedDamageMax > 0 || runtime.addedDamageMin > 0) {
+          const addedDamage = runtime.addedDamageMin +
+            Math.random() * (runtime.addedDamageMax - runtime.addedDamageMin);
           skillDamage += addedDamage;
         }
         
-        if (bestSkillDef.critBonusChance && !isCrit) {
+        if (runtime.critBonusChance && !isCrit) {
           const bonusCritRoll = Math.random() * 100;
-          if (bonusCritRoll < bestSkillDef.critBonusChance) {
+          if (bonusCritRoll < runtime.critBonusChance) {
             skillDamage *= playerStats.criticalMultiplier / 100;
           }
         }
         
-        if (isCrit && bestSkillDef.damageMultiplier > 0) {
+        if (isCrit && runtime.damageMultiplier > 0) {
           // Crit already applied in calculatePlayerDamage for weapon portion
         }
         
-        const numHits = bestSkillDef.numberOfHits || 1;
+        const numHits = runtime.numberOfHits;
         skillDamage *= numHits;
+
+        const didDoubleDamage = runtime.doubleDamageChance
+          ? Math.random() * 100 < runtime.doubleDamageChance
+          : false;
+        if (didDoubleDamage) {
+          skillDamage *= 2;
+        }
         
-        const maxTargets = bestSkillDef.aoeRadius || 1;
+        const maxTargets = runtime.aoeRadius;
         const targets = monstersInRange.slice(0, maxTargets);
         
         for (const target of targets) {
           const damageToTarget = Math.round(skillDamage);
           skillDamageMap.set(target.id, (skillDamageMap.get(target.id) || 0) + damageToTarget);
           
-          if (bestSkillDef.lifestealPercent) {
-            lifestealAmount += Math.round(damageToTarget * bestSkillDef.lifestealPercent / 100);
+          if (runtime.lifestealPercent) {
+            lifestealAmount += Math.round(damageToTarget * runtime.lifestealPercent / 100);
           }
         }
         
-        player.currentMana = Math.max(0, player.currentMana - bestSkillDef.manaCost);
-        
-        const skillIndex = player.skills.findIndex(s => s?.definitionId === bestSkill!.definitionId);
-        if (skillIndex >= 0 && player.skills[skillIndex]) {
-          player.skills[skillIndex] = {
-            ...player.skills[skillIndex]!,
-            currentCooldown: bestSkillDef.cooldown,
+        player.currentMana = Math.max(0, player.currentMana - runtime.manaCost);
+
+        if (player.skills[bestCandidate.slotIndex]) {
+          player.skills[bestCandidate.slotIndex] = {
+            ...player.skills[bestCandidate.slotIndex]!,
+            currentCooldown: runtime.cooldown,
           };
         }
         
@@ -444,6 +826,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
             get().addLog('playerHit', `${bestSkillDef.icon} ${bestSkillDef.name} hits ${targets.length} enemies!`, totalDamage);
           } else {
             get().addLog('playerHit', `${bestSkillDef.icon} ${bestSkillDef.name}!`, totalDamage);
+          }
+
+          if (didDoubleDamage) {
+            get().addLog('playerCrit', '💥 Double Damage!');
           }
         }
         
@@ -603,6 +989,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
         const loot = generateLoot(monster);
         
         player.experience += loot.experience;
+
+        // Gem XP: all equipped skill gems gain XP from kills.
+        player.skills = player.skills.map(skill => {
+          if (!skill) return null;
+          return {
+            ...skill,
+            experience: skill.experience + loot.experience,
+          };
+        });
+
+        // Support gem XP: linked support gems on equipped skills gain XP.
+        const equippedSupportInstanceIds = new Set<string>();
+        player.skills.forEach(skill => {
+          if (!skill) return;
+          skill.socketedSupportIds.forEach(instanceId => equippedSupportInstanceIds.add(instanceId));
+        });
+
+        player.supportGems = player.supportGems.map(supportGem => {
+          if (!equippedSupportInstanceIds.has(supportGem.instanceId)) return supportGem;
+          return {
+            ...supportGem,
+            experience: supportGem.experience + loot.experience,
+          };
+        });
         
         player.flasks = player.flasks.map(flask => {
           if (!flask) return flask;

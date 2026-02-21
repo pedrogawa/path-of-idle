@@ -203,6 +203,25 @@ export function rollCurrencyDrop(lootBonus: number): CurrencyType | null {
   return 'transmutation'; // Fallback
 }
 
+function rollSocketOrbDrop(monster: Monster): boolean {
+  // Very rare at low levels, slightly less rare later.
+  const baseChance = monster.level <= 10
+    ? 0.003
+    : monster.level <= 20
+      ? 0.006
+      : 0.01;
+
+  const rarityMultiplier = monster.rarity === 'boss'
+    ? 3
+    : monster.rarity === 'rare'
+      ? 1.8
+      : monster.rarity === 'magic'
+        ? 1.3
+        : 1;
+
+  return Math.random() < baseChance * monster.lootBonus * rarityMultiplier;
+}
+
 /**
  * Generate a specific item by base ID (for boss guaranteed drops)
  */
@@ -322,6 +341,10 @@ export function generateLoot(monster: Monster): LootResult {
     if (currency) {
       result.currency[currency] = (result.currency[currency] || 0) + 1;
     }
+  }
+
+  if (rollSocketOrbDrop(monster)) {
+    result.currency.socketOrb = (result.currency.socketOrb || 0) + 1;
   }
   
   return result;

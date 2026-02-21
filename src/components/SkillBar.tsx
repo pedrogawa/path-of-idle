@@ -1,6 +1,7 @@
 import { useGameStore } from '../stores/gameStore';
 import { skillById } from '../data';
 import { computePlayerStats } from '../lib/combat';
+import { estimateSkillDamageRange, getSkillRuntimeStats } from '../lib/skills';
 
 export function SkillBar() {
   const player = useGameStore(state => state.player);
@@ -33,13 +34,29 @@ export function SkillBar() {
 
           const skillDef = skillById.get(skill.definitionId);
           if (!skillDef) return null;
+          const runtime = getSkillRuntimeStats(skillDef, skill, player.supportGems);
+          const estimate = estimateSkillDamageRange(player, runtime);
+          const supportNames = runtime.supportGems.map(gem => gem.name).join(', ');
 
           const isOnCooldown = skill.currentCooldown > 0;
-          const hasEnoughMana = player.currentMana >= skillDef.manaCost;
+          const hasEnoughMana = player.currentMana >= runtime.manaCost;
           const isReady = !isOnCooldown && hasEnoughMana && isInCombat;
           const cooldownPercent = isOnCooldown
-            ? (skill.currentCooldown / skillDef.cooldown) * 100
+            ? (skill.currentCooldown / Math.max(runtime.cooldown, 0.001)) * 100
             : 0;
+          const tooltip = [
+            `${skillDef.name} (Lv.${skill.level})`,
+            skillDef.description,
+            '',
+            `Damage: ${Math.floor(estimate.min)}-${Math.floor(estimate.max)} (${skillDef.damageType})`,
+            `Damage Effectiveness: ${(runtime.damageMultiplier * 100).toFixed(1)}%`,
+            `Double Damage Chance: ${Math.round(runtime.doubleDamageChance || 0)}%`,
+            `Hits: ${runtime.numberOfHits}`,
+            `Mana: ${runtime.manaCost}`,
+            `Cooldown: ${runtime.cooldown.toFixed(1)}s`,
+            `Support Sockets: ${skill.socketedSupportIds.length}/${skill.maxSupportSockets}`,
+            `Supports: ${supportNames || 'None'}`,
+          ].join('\n');
 
           return (
             <div
@@ -55,7 +72,7 @@ export function SkillBar() {
                         : 'border-gray-600 bg-[#1a1a24]'
                   : 'border-gray-700 bg-[#0a0a0f] opacity-50'
                 }`}
-              title={`${skillDef.name}\n${skillDef.description}\nMana: ${skillDef.manaCost}\nCooldown: ${skillDef.cooldown}s`}
+              title={tooltip}
             >
               {/* Cooldown overlay */}
               {isOnCooldown && (
@@ -80,12 +97,17 @@ export function SkillBar() {
               {/* Mana cost indicator */}
               {!isOnCooldown && !hasEnoughMana && (
                 <span className="absolute bottom-0.5 text-[10px] font-bold text-blue-400 z-10">
-                  {skillDef.manaCost}
+                  {runtime.manaCost}
                 </span>
               )}
 
               {/* Hotkey */}
               <span className="absolute top-0.5 right-1 text-[9px] text-gray-500 z-10">{index + 1}</span>
+
+              {/* Socket count */}
+              <span className="absolute top-0.5 left-1 text-[9px] text-teal-400 z-10">
+                {skill.socketedSupportIds.length}/{skill.maxSupportSockets}
+              </span>
             </div>
           );
         })}
@@ -93,7 +115,7 @@ export function SkillBar() {
 
       {/* Skill tooltip info */}
       <div className="mt-2 text-[10px] text-gray-500 text-center">
-        Skills auto-use when ready • Priority: AOE → Highest Damage
+        Skills auto-use in Skill Bar order (left to right) • Strike is fallback
       </div>
     </div>
   );

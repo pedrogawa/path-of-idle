@@ -269,16 +269,25 @@ function InventoryItem({
   item,
   equippedItem,
   onEquip,
+  ringEquippedItems,
   onSell
 }: {
   item: Item;
   equippedItem: Item | null;
-  onEquip: () => void;
+  onEquip: (slot?: EquipmentSlot) => void;
+  ringEquippedItems?: { ring1: Item | null; ring2: Item | null };
   onSell: () => void;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const style = RARITY_STYLES[item.rarity];
+  const isRing = item.slot === 'ring1' || item.slot === 'ring2';
+  const [selectedRingSlot, setSelectedRingSlot] = useState<'ring1' | 'ring2'>(() => {
+    if (!ringEquippedItems) return 'ring1';
+    if (!ringEquippedItems.ring1) return 'ring1';
+    if (!ringEquippedItems.ring2) return 'ring2';
+    return 'ring1';
+  });
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -290,13 +299,15 @@ function InventoryItem({
   };
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+      onMouseMove={handleMouseMove}
+    >
       <button
-        onClick={onEquip}
+        onClick={() => onEquip(isRing ? selectedRingSlot : undefined)}
         onContextMenu={handleContextMenu}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        onMouseMove={handleMouseMove}
         className={`
           w-full p-2 rounded-lg border-2 text-left
           transition-all duration-150 hover:brightness-125 hover:scale-[1.02]
@@ -334,13 +345,52 @@ function InventoryItem({
             </span>
           )}
         </div>
+
       </button>
+
+      {/* Ring quick-slot selector */}
+      {isRing && showTooltip && (
+        <div className="absolute top-1 right-1 flex gap-1 z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRingSlot('ring1');
+            }}
+            className={`px-1.5 py-0.5 text-[9px] rounded border bg-[#0a0a0f]/95 ${
+              selectedRingSlot === 'ring1'
+                ? 'border-[#c9a227] text-[#c9a227]'
+                : 'border-[#2a2a3a] text-gray-300 hover:border-[#c9a227]/60'
+            }`}
+            title="Compare/equip to left ring slot"
+          >
+            L
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRingSlot('ring2');
+            }}
+            className={`px-1.5 py-0.5 text-[9px] rounded border bg-[#0a0a0f]/95 ${
+              selectedRingSlot === 'ring2'
+                ? 'border-[#c9a227] text-[#c9a227]'
+                : 'border-[#2a2a3a] text-gray-300 hover:border-[#c9a227]/60'
+            }`}
+            title="Compare/equip to right ring slot"
+          >
+            R
+          </button>
+        </div>
+      )}
 
       {/* Tooltip with comparison - rendered via portal */}
       {showTooltip && (
         <ComparisonTooltip
           item={item}
-          equippedItem={equippedItem}
+          equippedItem={isRing
+            ? (selectedRingSlot === 'ring1'
+              ? ringEquippedItems?.ring1 || null
+              : ringEquippedItems?.ring2 || null)
+            : equippedItem}
           position={mousePos}
         />
       )}
@@ -397,13 +447,26 @@ export function Inventory({ showEquipment = false, compact = false }: InventoryP
           {player.inventory.map(item => {
             const targetSlot = item.slot;
             const equippedItem = getEquippedForSlot(targetSlot);
+            const isRing = item.slot === 'ring1' || item.slot === 'ring2';
 
             return (
               <InventoryItem
                 key={item.id}
                 item={item}
                 equippedItem={equippedItem}
-                onEquip={() => equipItem(item.id)}
+                ringEquippedItems={isRing
+                  ? {
+                    ring1: player.equipment.ring1,
+                    ring2: player.equipment.ring2,
+                  }
+                  : undefined}
+                onEquip={(slot) => {
+                  if (slot) {
+                    equipItem(item.id, slot);
+                    return;
+                  }
+                  equipItem(item.id);
+                }}
                 onSell={() => sellItem(item.id)}
               />
             );
@@ -413,7 +476,7 @@ export function Inventory({ showEquipment = false, compact = false }: InventoryP
 
       {/* Help text */}
       <div className="mt-3 text-[10px] text-gray-600 text-center">
-        💡 Click to equip • Right-click to sell
+        💡 Click to equip • Hover rings: pick L/R target, then click • Right-click to sell
       </div>
     </div>
   );

@@ -28,7 +28,8 @@ export type CurrencyType =
   | 'chaos'          // Reroll Rare
   | 'exalted'        // Add affix to Rare
   | 'divine'         // Reroll values
-  | 'scouring';      // Remove all affixes
+  | 'scouring'       // Remove all affixes
+  | 'socketOrb';     // Adds 1 support socket to a skill
 
 export type DamageType = 'physical' | 'fire' | 'cold' | 'lightning';
 
@@ -174,6 +175,8 @@ export interface Player {
   equipment: Record<EquipmentSlot, Item | null>;
   flasks: (Flask | null)[]; // 5 flask slots
   skills: (PlayerSkill | null)[]; // 6 skill slots
+  inactiveSkills: PlayerSkill[]; // Learned skills not currently on the skill bar
+  supportGems: PlayerSupportGem[]; // Owned support gem instances
   inventory: Item[];
   inventorySize: number;
   
@@ -261,6 +264,13 @@ export interface SkillDefinition {
   numberOfHits?: number; // Multi-strike (default 1)
   critBonusChance?: number; // Added crit chance
   lifestealPercent?: number; // % of damage returned as life
+  doubleDamageChance?: number; // Chance to deal double damage (percent)
+
+  // Per-gem-level overrides (index 0 => level 1)
+  gemTotalExperienceByLevel?: number[];
+  manaCostByLevel?: number[];
+  damageMultiplierByLevel?: number[];
+  doubleDamageChanceByLevel?: number[];
   
   // Requirements
   requiredLevel: number;
@@ -269,11 +279,41 @@ export interface SkillDefinition {
   color: string; // For skill effects
 }
 
+export interface SupportGemDefinition {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  requiredLevel: number;
+  costCurrency: CurrencyType;
+  costAmount: number;
+  compatibleSkillTypes: SkillType[];
+
+  // Modifiers applied to the linked active skill
+  moreDamageMultiplier?: number; // 0.2 = 20% more damage
+  cooldownMultiplier?: number; // 0.9 = 10% faster cooldown
+  manaMultiplier?: number; // 1.2 = 20% higher mana cost
+  addedDamageMin?: number;
+  addedDamageMax?: number;
+  addedHits?: number;
+}
+
 export interface PlayerSkill {
   definitionId: string;
   level: number; // Skill level (1-20)
+  experience: number; // Gem total experience
   currentCooldown: number; // 0 = ready to use
   isActive: boolean; // Is this skill enabled for auto-use
+  maxSupportSockets: number; // Max linked support sockets (1-5)
+  socketedSupportIds: string[]; // Support gem instance IDs linked to this skill
+}
+
+export interface PlayerSupportGem {
+  instanceId: string;
+  definitionId: string;
+  level: number; // Gem level (1-20)
+  experience: number; // Gem total experience
 }
 
 export interface SkillSlot {
@@ -332,7 +372,7 @@ export interface GameMap {
 // GAME STATE
 // ============================================
 
-export type GameScreen = 'town' | 'worldMap' | 'combat' | 'character';
+export type GameScreen = 'town' | 'worldMap' | 'combat' | 'character' | 'skillTrainer';
 
 export type CombatState = 'idle' | 'fighting' | 'looting' | 'dead';
 

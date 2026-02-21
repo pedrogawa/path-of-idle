@@ -65,6 +65,13 @@ export const currencies: CurrencyDefinition[] = [
     dropWeight: 15,
     color: '#6b7280',
   },
+  {
+    id: 'socketOrb',
+    name: 'Socket Orb',
+    description: 'Adds one support socket to a skill (up to 5)',
+    dropWeight: 0,
+    color: '#14b8a6',
+  },
 ];
 
 export const currencyById = new Map(currencies.map(c => [c.id, c]));

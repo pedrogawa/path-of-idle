@@ -1,4 +1,42 @@
-import type { SkillDefinition } from '../types';
+import type { SkillDefinition, SupportGemDefinition } from '../types';
+
+const HEAVY_STRIKE_MANA_COST_BY_LEVEL = [
+  7, 7, 7, 7, 7, 8, 8, 8, 9, 9,
+  9, 10, 10, 10, 10, 11, 11, 11, 12, 12,
+];
+
+const HEAVY_STRIKE_DAMAGE_MULTIPLIER_BY_LEVEL = [
+  2.243, 2.341, 2.449, 2.565, 2.693, 2.831, 2.971, 3.118, 3.273, 3.433,
+  3.603, 3.78, 3.966, 4.161, 4.365, 4.58, 4.804, 5.039, 5.277, 5.525,
+];
+
+const HEAVY_STRIKE_DOUBLE_DAMAGE_CHANCE_BY_LEVEL = [
+  20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+  30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+];
+
+const HEAVY_STRIKE_TOTAL_EXPERIENCE_BY_LEVEL = [
+  0,
+  70,
+  378,
+  1932,
+  8599,
+  34646,
+  84371,
+  180085,
+  349680,
+  633439,
+  1087435,
+  1790563,
+  2851786,
+  4917656,
+  7424766,
+  13223702,
+  28307621,
+  56100356,
+  99970095,
+  342051651,
+];
 
 // ============================================
 // SKILL DEFINITIONS
@@ -31,12 +69,15 @@ export const skills: SkillDefinition[] = [
     icon: '🔨',
     type: 'attack',
     targeting: 'single',
-    damageMultiplier: 1.8,
+    damageMultiplier: HEAVY_STRIKE_DAMAGE_MULTIPLIER_BY_LEVEL[0],
     damageType: 'physical',
-    addedDamageMin: 5,
-    addedDamageMax: 10,
-    manaCost: 8,
+    manaCost: HEAVY_STRIKE_MANA_COST_BY_LEVEL[0],
     cooldown: 2,
+    doubleDamageChance: HEAVY_STRIKE_DOUBLE_DAMAGE_CHANCE_BY_LEVEL[0],
+    gemTotalExperienceByLevel: HEAVY_STRIKE_TOTAL_EXPERIENCE_BY_LEVEL,
+    manaCostByLevel: HEAVY_STRIKE_MANA_COST_BY_LEVEL,
+    damageMultiplierByLevel: HEAVY_STRIKE_DAMAGE_MULTIPLIER_BY_LEVEL,
+    doubleDamageChanceByLevel: HEAVY_STRIKE_DOUBLE_DAMAGE_CHANCE_BY_LEVEL,
     requiredLevel: 1,
     color: '#b45309',
   },
@@ -232,3 +273,74 @@ export const getAvailableSkills = (playerLevel: number): SkillDefinition[] => {
 };
 
 export const starterSkillIds = ['defaultAttack', 'heavyStrike', 'doubleStrike'];
+
+// ============================================
+// SUPPORT GEMS
+// ============================================
+
+export const supportGems: SupportGemDefinition[] = [
+  {
+    id: 'addedFireSupport',
+    name: 'Added Fire Support',
+    description: 'Adds flat fire damage to linked skill.',
+    icon: '🔥',
+    color: '#f97316',
+    requiredLevel: 2,
+    costCurrency: 'alteration',
+    costAmount: 3,
+    compatibleSkillTypes: ['attack', 'spell'],
+    addedDamageMin: 3,
+    addedDamageMax: 6,
+    manaMultiplier: 1.1,
+  },
+  {
+    id: 'brutalitySupport',
+    name: 'Brutality Support',
+    description: 'Linked skill deals more damage.',
+    icon: '💪',
+    color: '#d946ef',
+    requiredLevel: 3,
+    costCurrency: 'alteration',
+    costAmount: 5,
+    compatibleSkillTypes: ['attack', 'spell'],
+    moreDamageMultiplier: 0.25,
+    manaMultiplier: 1.2,
+  },
+  {
+    id: 'fasterAttacksSupport',
+    name: 'Faster Attacks Support',
+    description: 'Linked skill recovers faster between casts.',
+    icon: '⏩',
+    color: '#22d3ee',
+    requiredLevel: 4,
+    costCurrency: 'alteration',
+    costAmount: 6,
+    compatibleSkillTypes: ['attack'],
+    cooldownMultiplier: 0.8,
+    manaMultiplier: 1.15,
+  },
+  {
+    id: 'multistrikeSupport',
+    name: 'Multistrike Support',
+    description: 'Linked skill repeats one extra hit.',
+    icon: '⚔️',
+    color: '#facc15',
+    requiredLevel: 6,
+    costCurrency: 'alchemy',
+    costAmount: 2,
+    compatibleSkillTypes: ['attack'],
+    addedHits: 1,
+    cooldownMultiplier: 1.25,
+    manaMultiplier: 1.25,
+  },
+];
+
+export const supportGemById = new Map(supportGems.map(gem => [gem.id, gem]));
+
+export const getBuyableSkills = (playerLevel: number): SkillDefinition[] => {
+  return skills.filter(skill => skill.id !== 'defaultAttack' && skill.requiredLevel <= playerLevel);
+};
+
+export function getSkillPurchaseCost(skill: SkillDefinition): number {
+  return Math.max(2, skill.requiredLevel * 2);
+}

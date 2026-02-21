@@ -53,8 +53,8 @@ const VENDORS = [
     name: 'Skill Trainer',
     icon: '📚',
     description: 'Learn and upgrade skills',
-    action: null,
-    available: false,
+    action: 'skillTrainer' as const,
+    available: true,
   },
   {
     id: 'stash',
@@ -169,6 +169,12 @@ export function TownScreen() {
             className="px-6 py-3 bg-[#1a1a24] border border-[#2a2a3a] text-white font-medium rounded-lg hover:border-[#c9a227]/50 transition-all"
           >
             👤 Character
+          </button>
+          <button
+            onClick={() => navigateTo('skillTrainer')}
+            className="px-6 py-3 bg-[#1a1a24] border border-[#2a2a3a] text-white font-medium rounded-lg hover:border-[#c9a227]/50 transition-all"
+          >
+            📚 Skill Trainer
           </button>
         </div>
       </div>

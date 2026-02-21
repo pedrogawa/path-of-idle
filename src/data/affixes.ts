@@ -29,7 +29,7 @@ export const prefixes: AffixDefinition[] = [
     type: 'prefix',
     statKey: 'maxLife',
     isPercentage: false,
-    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'ring1', 'ring2'],
+    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'offhand', 'ring1', 'ring2'],
     tiers: [
       { tier: 1, minValue: 5, maxValue: 10, requiredItemLevel: 1 },
       { tier: 2, minValue: 11, maxValue: 20, requiredItemLevel: 5 },
@@ -47,7 +47,7 @@ export const prefixes: AffixDefinition[] = [
     type: 'prefix',
     statKey: 'armor',
     isPercentage: false,
-    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt'],
+    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'offhand'],
     tiers: [
       { tier: 1, minValue: 10, maxValue: 20, requiredItemLevel: 1 },
       { tier: 2, minValue: 21, maxValue: 40, requiredItemLevel: 5 },
@@ -237,7 +237,7 @@ export const prefixes: AffixDefinition[] = [
     type: 'prefix',
     statKey: 'evasion',
     isPercentage: false,
-    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt'],
+    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'offhand'],
     tiers: [
       { tier: 1, minValue: 15, maxValue: 30, requiredItemLevel: 1 },
       { tier: 2, minValue: 31, maxValue: 60, requiredItemLevel: 8 },
@@ -323,7 +323,7 @@ export const suffixes: AffixDefinition[] = [
     type: 'suffix',
     statKey: 'fireResistance',
     isPercentage: true,
-    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'ring1', 'ring2'],
+    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'offhand', 'ring1', 'ring2'],
     tiers: [
       { tier: 1, minValue: 6, maxValue: 11, requiredItemLevel: 1 },
       { tier: 2, minValue: 12, maxValue: 17, requiredItemLevel: 8 },
@@ -339,7 +339,7 @@ export const suffixes: AffixDefinition[] = [
     type: 'suffix',
     statKey: 'coldResistance',
     isPercentage: true,
-    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'ring1', 'ring2'],
+    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'offhand', 'ring1', 'ring2'],
     tiers: [
       { tier: 1, minValue: 6, maxValue: 11, requiredItemLevel: 1 },
       { tier: 2, minValue: 12, maxValue: 17, requiredItemLevel: 8 },
@@ -355,7 +355,7 @@ export const suffixes: AffixDefinition[] = [
     type: 'suffix',
     statKey: 'lightningResistance',
     isPercentage: true,
-    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'ring1', 'ring2'],
+    applicableSlots: ['helmet', 'bodyArmor', 'gloves', 'boots', 'belt', 'offhand', 'ring1', 'ring2'],
     tiers: [
       { tier: 1, minValue: 6, maxValue: 11, requiredItemLevel: 1 },
       { tier: 2, minValue: 12, maxValue: 17, requiredItemLevel: 8 },
