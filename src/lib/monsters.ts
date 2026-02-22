@@ -96,6 +96,8 @@ export function spawnMonster(
     distance: SPAWN_DISTANCE,
     moveSpeed: getMoveSpeed(rarity),
     attackCooldown: 0,
+    bleedDps: 0,
+    bleedRemainingDuration: 0,
   };
 }
 
@@ -130,6 +132,8 @@ export function spawnBoss(bossId: string, mapLevel: number): Monster | null {
     distance: SPAWN_DISTANCE,
     moveSpeed: getMoveSpeed('boss'),
     attackCooldown: 0, // Ready to attack when in range
+    bleedDps: 0,
+    bleedRemainingDuration: 0,
     skillStates, // Boss skill cooldowns
   };
 }

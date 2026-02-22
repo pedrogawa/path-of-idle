@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { PlayerStats } from '../components/PlayerStats';
 import { Inventory } from '../components/Inventory';
 import { CurrencyDisplay } from '../components/CurrencyDisplay';
+import { ItemTooltipPortal } from '../components/ItemTooltip';
 import { computePlayerStats } from '../lib/combat';
-import type { EquipmentSlot } from '../types';
+import type { EquipmentSlot, Item } from '../types';
 
 // Bottom padding when combat mini panel is shown
 const useCombatPadding = () => {
@@ -45,6 +47,7 @@ export function CharacterScreen() {
   const unequipItem = useGameStore(state => state.unequipItem);
   const combatState = useGameStore(state => state.combatState);
   const combatPadding = useCombatPadding();
+  const [hoveredItem, setHoveredItem] = useState<{ item: Item; x: number; y: number } | null>(null);
 
   const stats = computePlayerStats(player);
   const expPercent = player.experience > 0
@@ -162,6 +165,17 @@ export function CharacterScreen() {
                     <button
                       key={slot}
                       onClick={() => item && unequipItem(slot)}
+                      onMouseEnter={(e) => {
+                        if (!item) return;
+                        setHoveredItem({ item, x: e.clientX, y: e.clientY });
+                      }}
+                      onMouseMove={(e) => {
+                        if (!item) return;
+                        setHoveredItem({ item, x: e.clientX, y: e.clientY });
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredItem(current => (current?.item.id === item?.id ? null : current));
+                      }}
                       className={`
                         relative p-2 rounded-lg border-2 aspect-square flex flex-col items-center justify-center transition-all
                         ${item
@@ -193,6 +207,15 @@ export function CharacterScreen() {
               <p className="text-[10px] text-gray-500 mt-3 text-center">
                 Click equipped item to unequip
               </p>
+
+              {hoveredItem && (
+                <ItemTooltipPortal
+                  item={hoveredItem.item}
+                  position={{ x: hoveredItem.x, y: hoveredItem.y }}
+                  label="Equipped"
+                  hint="Click to unequip"
+                />
+              )}
             </div>
           </div>
 

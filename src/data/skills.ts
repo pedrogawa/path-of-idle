@@ -5,6 +5,11 @@ const HEAVY_STRIKE_MANA_COST_BY_LEVEL = [
   9, 10, 10, 10, 10, 11, 11, 11, 12, 12,
 ];
 
+const HEAVY_STRIKE_REQUIRED_LEVEL_BY_LEVEL = [
+  1, 2, 4, 7, 11, 16, 20, 24, 28, 32,
+  36, 40, 44, 48, 52, 56, 60, 64, 67, 70,
+];
+
 const HEAVY_STRIKE_DAMAGE_MULTIPLIER_BY_LEVEL = [
   2.243, 2.341, 2.449, 2.565, 2.693, 2.831, 2.971, 3.118, 3.273, 3.433,
   3.603, 3.78, 3.966, 4.161, 4.365, 4.58, 4.804, 5.039, 5.277, 5.525,
@@ -36,6 +41,92 @@ const HEAVY_STRIKE_TOTAL_EXPERIENCE_BY_LEVEL = [
   56100356,
   99970095,
   342051651,
+];
+
+const ADDED_FIRE_SUPPORT_REQUIRED_LEVEL_BY_LEVEL = [
+  8, 10, 13, 17, 21, 25, 29, 33, 37, 40,
+  43, 46, 49, 52, 55, 58, 61, 64, 67, 70,
+];
+
+const ADDED_FIRE_SUPPORT_PHYS_AS_EXTRA_FIRE_BY_LEVEL = [
+  25, 25, 26, 27, 28, 28, 29, 30, 31, 31,
+  32, 33, 34, 34, 35, 36, 37, 37, 38, 39,
+];
+
+const ADDED_FIRE_SUPPORT_TOTAL_EXPERIENCE_BY_LEVEL = [
+  0,
+  3231,
+  12800,
+  40989,
+  100135,
+  211327,
+  405127,
+  725407,
+  1233246,
+  1787625,
+  2542674,
+  3559207,
+  5457809,
+  7421828,
+  9995559,
+  17606398,
+  31043282,
+  56093893,
+  99961281,
+  342039899,
+];
+
+const MULTISTRIKE_SUPPORT_REQUIRED_LEVEL_BY_LEVEL = [
+  38, 40, 42, 44, 46, 48, 50, 52, 54, 56,
+  58, 60, 62, 64, 65, 66, 67, 68, 69, 70,
+];
+
+const MULTISTRIKE_SUPPORT_ATTACK_SPEED_MORE_BY_LEVEL = [
+  35, 35, 36, 36, 37, 37, 38, 38, 39, 39,
+  40, 40, 41, 41, 42, 42, 43, 43, 44, 44,
+];
+
+const MULTISTRIKE_SUPPORT_SECOND_HIT_LESS_DAMAGE_BY_LEVEL = [
+  30, 29, 29, 28, 28, 27, 27, 26, 26, 25,
+  25, 24, 24, 23, 23, 22, 22, 21, 21, 20,
+];
+
+const MULTISTRIKE_SUPPORT_TOTAL_EXPERIENCE_BY_LEVEL = [
+  0,
+  388734,
+  866171,
+  1449957,
+  2160316,
+  3515827,
+  4654704,
+  6022937,
+  7661275,
+  9617923,
+  13273107,
+  16290434,
+  19866666,
+  24098333,
+  26493411,
+  34914474,
+  51074457,
+  92244824,
+  179039272,
+  336444335,
+];
+
+const CHANCE_TO_BLEED_SUPPORT_REQUIRED_LEVEL_BY_LEVEL = [
+  1, 2, 4, 7, 11, 16, 20, 24, 28, 32,
+  36, 40, 44, 48, 52, 56, 60, 64, 67, 70,
+];
+
+const CHANCE_TO_BLEED_SUPPORT_MORE_BLEEDING_DAMAGE_BY_LEVEL = [
+  10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+  20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+];
+
+const CHANCE_TO_BLEED_SUPPORT_CHANCE_TO_BLEED_BY_LEVEL = [
+  25, 25, 25, 25, 25, 25, 25, 25, 25, 25,
+  25, 25, 25, 25, 25, 25, 25, 25, 25, 25,
 ];
 
 // ============================================
@@ -75,6 +166,7 @@ export const skills: SkillDefinition[] = [
     cooldown: 2,
     doubleDamageChance: HEAVY_STRIKE_DOUBLE_DAMAGE_CHANCE_BY_LEVEL[0],
     gemTotalExperienceByLevel: HEAVY_STRIKE_TOTAL_EXPERIENCE_BY_LEVEL,
+    requiredCharacterLevelByGemLevel: HEAVY_STRIKE_REQUIRED_LEVEL_BY_LEVEL,
     manaCostByLevel: HEAVY_STRIKE_MANA_COST_BY_LEVEL,
     damageMultiplierByLevel: HEAVY_STRIKE_DAMAGE_MULTIPLIER_BY_LEVEL,
     doubleDamageChanceByLevel: HEAVY_STRIKE_DOUBLE_DAMAGE_CHANCE_BY_LEVEL,
@@ -282,15 +374,17 @@ export const supportGems: SupportGemDefinition[] = [
   {
     id: 'addedFireSupport',
     name: 'Added Fire Support',
-    description: 'Adds flat fire damage to linked skill.',
+    description: 'Gain a percentage of physical damage as extra fire damage.',
     icon: '🔥',
     color: '#f97316',
-    requiredLevel: 2,
+    requiredLevel: 8,
     costCurrency: 'alteration',
     costAmount: 3,
     compatibleSkillTypes: ['attack', 'spell'],
-    addedDamageMin: 3,
-    addedDamageMax: 6,
+    gemTotalExperienceByLevel: ADDED_FIRE_SUPPORT_TOTAL_EXPERIENCE_BY_LEVEL,
+    requiredCharacterLevelByGemLevel: ADDED_FIRE_SUPPORT_REQUIRED_LEVEL_BY_LEVEL,
+    physicalAsExtraFirePercent: ADDED_FIRE_SUPPORT_PHYS_AS_EXTRA_FIRE_BY_LEVEL[0],
+    physicalAsExtraFirePercentByLevel: ADDED_FIRE_SUPPORT_PHYS_AS_EXTRA_FIRE_BY_LEVEL,
     manaMultiplier: 1.1,
   },
   {
@@ -322,16 +416,39 @@ export const supportGems: SupportGemDefinition[] = [
   {
     id: 'multistrikeSupport',
     name: 'Multistrike Support',
-    description: 'Linked skill repeats one extra hit.',
+    description: 'Linked skill repeats one extra hit. The second hit deals less damage.',
     icon: '⚔️',
     color: '#facc15',
-    requiredLevel: 6,
+    requiredLevel: 38,
     costCurrency: 'alchemy',
     costAmount: 2,
     compatibleSkillTypes: ['attack'],
+    gemTotalExperienceByLevel: MULTISTRIKE_SUPPORT_TOTAL_EXPERIENCE_BY_LEVEL,
+    requiredCharacterLevelByGemLevel: MULTISTRIKE_SUPPORT_REQUIRED_LEVEL_BY_LEVEL,
+    attackSpeedMorePercent: MULTISTRIKE_SUPPORT_ATTACK_SPEED_MORE_BY_LEVEL[0],
+    attackSpeedMorePercentByLevel: MULTISTRIKE_SUPPORT_ATTACK_SPEED_MORE_BY_LEVEL,
+    secondHitLessDamagePercent: MULTISTRIKE_SUPPORT_SECOND_HIT_LESS_DAMAGE_BY_LEVEL[0],
+    secondHitLessDamagePercentByLevel: MULTISTRIKE_SUPPORT_SECOND_HIT_LESS_DAMAGE_BY_LEVEL,
     addedHits: 1,
-    cooldownMultiplier: 1.25,
     manaMultiplier: 1.25,
+  },
+  {
+    id: 'chanceToBleedSupport',
+    name: 'Chance to Bleed Support',
+    description: 'Supported attacks have chance to inflict Bleeding and deal more Bleeding damage.',
+    icon: '🩸',
+    color: '#ef4444',
+    requiredLevel: 1,
+    costCurrency: 'alteration',
+    costAmount: 4,
+    compatibleSkillTypes: ['attack'],
+    gemTotalExperienceByLevel: HEAVY_STRIKE_TOTAL_EXPERIENCE_BY_LEVEL,
+    requiredCharacterLevelByGemLevel: CHANCE_TO_BLEED_SUPPORT_REQUIRED_LEVEL_BY_LEVEL,
+    chanceToBleedPercent: CHANCE_TO_BLEED_SUPPORT_CHANCE_TO_BLEED_BY_LEVEL[0],
+    chanceToBleedPercentByLevel: CHANCE_TO_BLEED_SUPPORT_CHANCE_TO_BLEED_BY_LEVEL,
+    moreBleedingDamagePercent: CHANCE_TO_BLEED_SUPPORT_MORE_BLEEDING_DAMAGE_BY_LEVEL[0],
+    moreBleedingDamagePercentByLevel: CHANCE_TO_BLEED_SUPPORT_MORE_BLEEDING_DAMAGE_BY_LEVEL,
+    manaMultiplier: 1.2,
   },
 ];
 

@@ -33,6 +33,15 @@ export type CurrencyType =
 
 export type DamageType = 'physical' | 'fire' | 'cold' | 'lightning';
 
+export type ItemBaseTag =
+  | 'bodyArmorStrength'
+  | 'bodyArmorDexterity'
+  | 'bodyArmorIntelligence'
+  | 'bodyArmorStrengthDexterity'
+  | 'bodyArmorStrengthIntelligence'
+  | 'bodyArmorDexterityIntelligence'
+  | 'bodyArmorStrengthDexterityIntelligence';
+
 // ============================================
 // AFFIXES
 // ============================================
@@ -42,6 +51,10 @@ export interface AffixTier {
   minValue: number;
   maxValue: number;
   requiredItemLevel: number;
+  secondaryMinValue?: number;
+  secondaryMaxValue?: number;
+  tertiaryMinValue?: number;
+  tertiaryMaxValue?: number;
 }
 
 export interface AffixDefinition {
@@ -49,15 +62,22 @@ export interface AffixDefinition {
   name: string;
   type: AffixType;
   statKey: keyof PlayerStats;
+  secondaryStatKey?: keyof PlayerStats;
+  tertiaryStatKey?: keyof PlayerStats;
+  usePrimaryValueForSecondary?: boolean;
+  usePrimaryValueForTertiary?: boolean;
   tiers: AffixTier[];
   isPercentage: boolean;
   applicableSlots: EquipmentSlot[];
+  requiredBaseTagsAny?: ItemBaseTag[];
 }
 
 export interface Affix {
   definitionId: string;
   tier: number;
   value: number;
+  secondaryValue?: number;
+  tertiaryValue?: number;
 }
 
 // ============================================
@@ -69,8 +89,13 @@ export interface ItemBase {
   name: string;
   slot: EquipmentSlot;
   baseStats: Partial<PlayerStats>;
+  baseStatRanges?: Partial<Record<keyof PlayerStats, { min: number; max: number }>>;
   requiredLevel: number;
+  requiredStrength?: number;
+  requiredDexterity?: number;
+  requiredIntelligence?: number;
   dropLevel: number;
+  baseTags?: ItemBaseTag[];
 }
 
 export interface Item {
@@ -79,6 +104,7 @@ export interface Item {
   name: string;
   slot: EquipmentSlot;
   itemLevel: number;
+  rolledBaseStats?: Partial<PlayerStats>;
   rarity: ItemRarity;
   prefixes: Affix[];
   suffixes: Affix[];
@@ -125,12 +151,17 @@ export interface PlayerStats {
   // Defensive
   maxLife: number;
   maxMana: number;
+  energyShield: number;
+  increasedEnergyShield: number;
   armor: number;
+  increasedArmor: number;
   evasion: number;       // Chance to dodge attacks
+  increasedEvasion: number;
   blockChance: number;   // Chance to block (shields)
   fireResistance: number;
   coldResistance: number;
   lightningResistance: number;
+  chaosResistance: number;
   lifeRegeneration: number;
   manaRegeneration: number;
 }
@@ -223,6 +254,10 @@ export interface Monster {
   
   // Attack timing (for discrete attacks, not DPS)
   attackCooldown: number; // Seconds until next attack (0 = ready to attack)
+
+  // Ailments
+  bleedDps: number; // Active bleed DPS on this monster
+  bleedRemainingDuration: number; // Seconds left on active bleed
   
   // Boss-specific: skill cooldowns (only present for bosses)
   skillStates?: BossSkillState[];
@@ -268,6 +303,7 @@ export interface SkillDefinition {
 
   // Per-gem-level overrides (index 0 => level 1)
   gemTotalExperienceByLevel?: number[];
+  requiredCharacterLevelByGemLevel?: number[];
   manaCostByLevel?: number[];
   damageMultiplierByLevel?: number[];
   doubleDamageChanceByLevel?: number[];
@@ -290,6 +326,10 @@ export interface SupportGemDefinition {
   costAmount: number;
   compatibleSkillTypes: SkillType[];
 
+  // Per-gem-level overrides (index 0 => level 1)
+  gemTotalExperienceByLevel?: number[];
+  requiredCharacterLevelByGemLevel?: number[];
+
   // Modifiers applied to the linked active skill
   moreDamageMultiplier?: number; // 0.2 = 20% more damage
   cooldownMultiplier?: number; // 0.9 = 10% faster cooldown
@@ -297,6 +337,16 @@ export interface SupportGemDefinition {
   addedDamageMin?: number;
   addedDamageMax?: number;
   addedHits?: number;
+  attackSpeedMorePercent?: number;
+  attackSpeedMorePercentByLevel?: number[];
+  secondHitLessDamagePercent?: number;
+  secondHitLessDamagePercentByLevel?: number[];
+  physicalAsExtraFirePercent?: number;
+  physicalAsExtraFirePercentByLevel?: number[];
+  chanceToBleedPercent?: number;
+  chanceToBleedPercentByLevel?: number[];
+  moreBleedingDamagePercent?: number;
+  moreBleedingDamagePercentByLevel?: number[];
 }
 
 export interface PlayerSkill {

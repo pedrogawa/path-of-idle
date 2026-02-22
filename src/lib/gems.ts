@@ -60,3 +60,19 @@ export function canGemLevelUp(
   if (nextLevelTotal === null) return false;
   return experience >= nextLevelTotal;
 }
+
+export function getGemRequiredCharacterLevelForLevel(
+  gemLevel: number,
+  baseRequiredLevel: number,
+  requiredCharacterLevelByGemLevel?: readonly number[]
+): number {
+  if (gemLevel <= 1) {
+    return requiredCharacterLevelByGemLevel?.[0] ?? baseRequiredLevel;
+  }
+
+  if (requiredCharacterLevelByGemLevel && requiredCharacterLevelByGemLevel.length > 0) {
+    const levelIndex = Math.max(0, Math.min(requiredCharacterLevelByGemLevel.length - 1, gemLevel - 1));
+    return requiredCharacterLevelByGemLevel[levelIndex];
+  }
+  return baseRequiredLevel;
+}

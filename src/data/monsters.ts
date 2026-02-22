@@ -500,7 +500,7 @@ export const bosses: BossDefinition[] = [
     damageType: 'physical',
     experienceReward: 450,
     lootBonus: 3.5,
-    guaranteedDrops: ['ironSword', 'leatherVest'],
+    guaranteedDrops: ['ironSword', 'chestplate'],
     skills: caveLurkerSkills,
   },
   {
@@ -513,7 +513,7 @@ export const bosses: BossDefinition[] = [
     damageType: 'cold',
     experienceReward: 700,
     lootBonus: 4,
-    guaranteedDrops: ['ironHelm', 'chainmail'],
+    guaranteedDrops: ['ironHelm', 'copperPlate'],
     skills: ghostAdmiralSkills,
   },
   {
@@ -552,7 +552,7 @@ export const bosses: BossDefinition[] = [
     damageType: 'physical',
     experienceReward: 1900,
     lootBonus: 5.5,
-    guaranteedDrops: ['plateArmor', 'studdedBelt'],
+    guaranteedDrops: ['warPlate', 'studdedBelt'],
     skills: ruinedSentinelSkills,
   },
   {

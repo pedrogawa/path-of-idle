@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useGameStore } from '../stores/gameStore';
-import type { Item, EquipmentSlot } from '../types';
+import type { Item, EquipmentSlot, PlayerStats } from '../types';
 import { allAffixes, itemBaseById } from '../data';
 
 const SLOT_LABELS: Record<EquipmentSlot, string> = {
@@ -72,12 +72,18 @@ const PERCENTAGE_STATS = new Set([
   'increasedFireDamage',
   'increasedColdDamage',
   'increasedLightningDamage',
+  'increasedEnergyShield',
+  'increasedArmor',
+  'increasedEvasion',
   'criticalChance',
   'fireResistance',
   'coldResistance',
   'lightningResistance',
+  'chaosResistance',
   'blockChance',
 ]);
+
+const affixById = new Map(allAffixes.map(affix => [affix.id, affix]));
 
 function isPercentageStat(key: string): boolean {
   if (PERCENTAGE_STATS.has(key)) return true;
@@ -91,10 +97,86 @@ function formatStatName(key: string): string {
   return key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
 }
 
+function formatStatValue(value: number): string {
+  return Number.isInteger(value) ? String(Math.floor(value)) : value.toFixed(1);
+}
+
+function getClampedTooltipPosition(
+  position: { x: number; y: number },
+  width: number,
+  height: number
+): { left: number; top: number } {
+  let left = position.x + 20;
+  let top = position.y - 10;
+
+  if (left + width > window.innerWidth - 20) {
+    left = position.x - width - 20;
+  }
+
+  if (top + height > window.innerHeight - 20) {
+    top = window.innerHeight - height - 20;
+  }
+
+  if (top < 20) {
+    top = 20;
+  }
+
+  if (left < 20) {
+    left = 20;
+  }
+
+  return { left, top };
+}
+
+function getBaseStats(item: Item): Partial<PlayerStats> {
+  const base = itemBaseById.get(item.baseId);
+  return item.rolledBaseStats ?? base?.baseStats ?? {};
+}
+
+const LOCAL_DEFENSE_KEYS: Array<keyof PlayerStats> = ['armor', 'evasion', 'energyShield'];
+
+function getDisplayBaseStats(item: Item): Partial<PlayerStats> {
+  const baseStats = getBaseStats(item);
+  const display = { ...baseStats };
+
+  // PoE-like presentation: local defense lines include local affix effects.
+  for (const statKey of LOCAL_DEFENSE_KEYS) {
+    const totalValue = item.stats[statKey];
+    if (typeof totalValue === 'number' && totalValue !== 0) {
+      (display as Record<string, number>)[statKey] = totalValue;
+    }
+  }
+
+  return display;
+}
+
+function getAffixKindLabel(kind: 'prefix' | 'suffix'): string {
+  return kind === 'prefix' ? 'Prefix' : 'Suffix';
+}
+
 function ItemCard({ item, label, dimmed = false, solid = false }: { item: Item; label?: string; dimmed?: boolean; solid?: boolean }) {
   const style = RARITY_STYLES[item.rarity];
   const base = itemBaseById.get(item.baseId);
   const bgClass = solid ? style.bgSolid : style.bg;
+  const baseStats = getDisplayBaseStats(item);
+  const baseStatRows = Object.entries(baseStats).filter(([, value]) => typeof value === 'number' && value !== 0);
+  const affixRows = [
+    ...item.prefixes.map(affix => ({ affix, kind: 'prefix' as const })),
+    ...item.suffixes.map(affix => ({ affix, kind: 'suffix' as const })),
+  ].map(({ affix, kind }) => {
+    const def = affixById.get(affix.definitionId);
+    if (!def) return null;
+
+    const statParts: Array<{ key: keyof PlayerStats; value: number }> = [{ key: def.statKey, value: affix.value }];
+    if (def.secondaryStatKey && affix.secondaryValue !== undefined) {
+      statParts.push({ key: def.secondaryStatKey, value: affix.secondaryValue });
+    }
+    if (def.tertiaryStatKey && affix.tertiaryValue !== undefined) {
+      statParts.push({ key: def.tertiaryStatKey, value: affix.tertiaryValue });
+    }
+
+    return { def, affix, kind, statParts };
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
 
   return (
     <div className={`rounded-lg border-2 ${style.border} ${bgClass} min-w-[220px] ${dimmed ? 'opacity-60' : ''}`}>
@@ -122,26 +204,49 @@ function ItemCard({ item, label, dimmed = false, solid = false }: { item: Item; 
         {/* Separator */}
         <div className="border-t border-gray-700 my-2" />
 
-        {/* Stats */}
+        {/* Base stats */}
         <div className="space-y-1">
-          {Object.entries(item.stats).map(([key, value]) => {
-            if (!value) return null;
-            const label = formatStatName(key);
-            const showPercent = isPercentageStat(key);
-
-            return (
-              <div key={key} className="text-xs flex justify-between gap-4">
-                <span className="text-gray-400">{label}</span>
-                <span className="text-blue-300 font-medium">
-                  +{typeof value === 'number' ? Math.floor(value) : value}{showPercent ? '%' : ''}
-                </span>
-              </div>
-            );
-          })}
-          {Object.keys(item.stats).length === 0 && (
+          <div className="text-[10px] uppercase tracking-wider text-gray-500">Base Stats</div>
+          {baseStatRows.map(([key, value]) => (
+            <div key={`base_${key}`} className="text-xs flex justify-between gap-4">
+              <span className="text-gray-300">{formatStatName(key)}</span>
+              <span className="text-blue-200 font-medium">
+                +{formatStatValue(value as number)}{isPercentageStat(key) ? '%' : ''}
+              </span>
+            </div>
+          ))}
+          {baseStatRows.length === 0 && (
             <div className="text-xs text-gray-500 italic">No bonuses</div>
           )}
         </div>
+
+        {/* Affixes */}
+        {affixRows.length > 0 && (
+          <>
+            <div className="border-t border-gray-700 my-2" />
+            <div className="space-y-2">
+              <div className="text-[10px] uppercase tracking-wider text-gray-500">Affixes</div>
+              {affixRows.map(({ affix, kind, statParts, def }) => (
+                <div key={`${affix.definitionId}_${kind}_${affix.tier}_${statParts.length}`} className="rounded border border-[#2a2a3a] bg-[#0a0a0f]/60 px-2 py-1">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+                    {getAffixKindLabel(kind)} • Tier {affix.tier}
+                  </div>
+                  <div className="text-[10px] text-gray-500">{def.name}</div>
+                  <div className="mt-1 space-y-0.5">
+                    {statParts.map((part, index) => (
+                      <div key={`${affix.definitionId}_${part.key}_${index}`} className="text-xs flex justify-between gap-4">
+                        <span className="text-gray-300">{formatStatName(part.key)}</span>
+                        <span className="text-blue-300 font-medium">
+                          +{formatStatValue(part.value)}{def.isPercentage ? '%' : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -157,22 +262,8 @@ function ComparisonTooltip({
   position: { x: number; y: number };
 }) {
   const tooltipWidth = equippedItem ? 480 : 240;
-  const tooltipHeight = 300;
-
-  let left = position.x + 20;
-  let top = position.y - 10;
-
-  if (left + tooltipWidth > window.innerWidth - 20) {
-    left = position.x - tooltipWidth - 20;
-  }
-
-  if (top + tooltipHeight > window.innerHeight - 20) {
-    top = window.innerHeight - tooltipHeight - 20;
-  }
-
-  if (top < 20) {
-    top = 20;
-  }
+  const tooltipHeight = 420;
+  const { left, top } = getClampedTooltipPosition(position, tooltipWidth, tooltipHeight);
 
   return createPortal(
     <div
@@ -223,7 +314,11 @@ function EquipmentSlotBox({
 
       <button
         onClick={item ? onUnequip : undefined}
-        onMouseEnter={() => item && setShowTooltip(true)}
+        onMouseEnter={(e) => {
+          if (!item) return;
+          setMousePos({ x: e.clientX, y: e.clientY });
+          setShowTooltip(true);
+        }}
         onMouseLeave={() => setShowTooltip(false)}
         onMouseMove={handleMouseMove}
         className={`
@@ -249,18 +344,23 @@ function EquipmentSlotBox({
       </button>
 
       {/* Equipment tooltip - no comparison needed */}
-      {showTooltip && item && createPortal(
-        <div
-          className="fixed z-[9999] pointer-events-none"
-          style={{ left: mousePos.x + 20, top: mousePos.y - 10 }}
-        >
-          <ItemCard item={item} label="Equipped" solid />
-          <div className="mt-2 text-[10px] text-gray-500 bg-[#0a0a0f] px-2 py-1 rounded inline-block border border-gray-700">
-            Click to unequip
-          </div>
-        </div>,
-        document.body
-      )}
+      {showTooltip && item && (() => {
+        const tooltipWidth = 260;
+        const tooltipHeight = 420;
+        const { left, top } = getClampedTooltipPosition(mousePos, tooltipWidth, tooltipHeight);
+        return createPortal(
+          <div
+            className="fixed z-[9999] pointer-events-none"
+            style={{ left, top }}
+          >
+            <ItemCard item={item} label="Equipped" solid />
+            <div className="mt-2 text-[10px] text-gray-500 bg-[#0a0a0f] px-2 py-1 rounded inline-block border border-gray-700">
+              Click to unequip
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
     </div>
   );
 }
@@ -301,7 +401,10 @@ function InventoryItem({
   return (
     <div
       className="relative"
-      onMouseEnter={() => setShowTooltip(true)}
+      onMouseEnter={(e) => {
+        setMousePos({ x: e.clientX, y: e.clientY });
+        setShowTooltip(true);
+      }}
       onMouseLeave={() => setShowTooltip(false)}
       onMouseMove={handleMouseMove}
     >
@@ -335,7 +438,7 @@ function InventoryItem({
             if (!value) return null;
             return (
               <span key={key} className="text-[9px] text-blue-400/80 bg-blue-900/30 px-1 rounded">
-                +{typeof value === 'number' ? Math.floor(value) : value}{isPercentageStat(key) ? '%' : ''}
+                +{typeof value === 'number' ? formatStatValue(value) : value}{isPercentageStat(key) ? '%' : ''}
               </span>
             );
           })}

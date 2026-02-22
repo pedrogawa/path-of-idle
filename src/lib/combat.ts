@@ -5,6 +5,8 @@ import type {
   ComputedPlayerStats,
   DamageType 
 } from '../types';
+import { itemBaseById } from '../data';
+import { computeItemStats } from './loot';
 
 /**
  * XP required to level up from each level (index = level)
@@ -136,9 +138,9 @@ export function getExperienceForLevel(level: number): number {
  */
 export function getDefaultPlayerStats(): PlayerStats {
   return {
-    strength: 10,
-    dexterity: 10,
-    intelligence: 10,
+    strength: 32,
+    dexterity: 12,
+    intelligence: 12,
     
     physicalDamageMin: 4,
     physicalDamageMax: 7,
@@ -160,12 +162,17 @@ export function getDefaultPlayerStats(): PlayerStats {
     
     maxLife: 80,
     maxMana: 40,
+    energyShield: 0,
+    increasedEnergyShield: 0,
     armor: 0,
+    increasedArmor: 0,
     evasion: 0,
+    increasedEvasion: 0,
     blockChance: 0,
     fireResistance: 0,
     coldResistance: 0,
     lightningResistance: 0,
+    chaosResistance: 0,
     lifeRegeneration: 1,
     manaRegeneration: 2,
   };
@@ -179,14 +186,29 @@ export function computePlayerStats(player: Player): ComputedPlayerStats {
   
   Object.values(player.equipment).forEach(item => {
     if (!item) return;
-    
-    Object.entries(item.stats).forEach(([key, value]) => {
+
+    // Recompute from base + affixes so stat behavior stays consistent for old items.
+    const base = itemBaseById.get(item.baseId);
+    const baseStatsForItem = item.rolledBaseStats ?? base?.baseStats ?? {};
+    const computedItemStats = computeItemStats(baseStatsForItem, item.prefixes, item.suffixes);
+
+    Object.entries(computedItemStats).forEach(([key, value]) => {
       if (value === undefined) return;
       
       // Handle backwards compatibility: old items might have 'attackSpeed' 
       // which should be treated as 'increasedAttackSpeed' (percentage)
       if (key === 'attackSpeed') {
         stats.increasedAttackSpeed += value;
+        return;
+      }
+
+      // Local defense increases are already applied on item stats in loot compute.
+      // Do not add them to global character increases.
+      if (
+        key === 'increasedArmor' ||
+        key === 'increasedEvasion' ||
+        key === 'increasedEnergyShield'
+      ) {
         return;
       }
       
@@ -203,10 +225,12 @@ export function computePlayerStats(player: Player): ComputedPlayerStats {
   const strBonus = Math.floor(stats.strength / 10);
   stats.maxLife += strBonus * 2;
   stats.increasedPhysicalDamage += strBonus * 2;
+  stats.energyShield = Math.floor(stats.energyShield * (1 + stats.increasedEnergyShield / 100));
+  stats.armor = Math.floor(stats.armor * (1 + stats.increasedArmor / 100));
   
   stats.accuracy += stats.dexterity * 2;
   const dexEvasionBonus = Math.floor(stats.dexterity / 5) * 2;
-  stats.evasion = Math.floor(stats.evasion * (1 + dexEvasionBonus / 100));
+  stats.evasion = Math.floor(stats.evasion * (1 + (dexEvasionBonus + stats.increasedEvasion) / 100));
   
   const intBonus = Math.floor(stats.intelligence / 10);
   stats.maxMana += intBonus * 2;
@@ -238,7 +262,7 @@ export function computePlayerStats(player: Player): ComputedPlayerStats {
   
   const dps = effectiveHit * effectiveAttackSpeed;
   
-  const effectiveHp = stats.maxLife;
+  const effectiveHp = stats.maxLife + stats.energyShield;
   
   return {
     ...stats,
@@ -252,31 +276,36 @@ export function computePlayerStats(player: Player): ComputedPlayerStats {
 /**
  * Calculate damage dealt to monster
  */
-export function calculatePlayerDamage(player: Player): { damage: number; isCrit: boolean } {
+export function calculatePlayerDamage(player: Player): { damage: number; physicalDamage: number; isCrit: boolean } {
   const stats = computePlayerStats(player);
   
   // Roll between min and max for each damage type
   const rollDamage = (min: number, max: number) => 
     min + Math.random() * (max - min);
   
-  let totalDamage = 0;
-  
-  totalDamage += rollDamage(stats.physicalDamageMin, stats.physicalDamageMax) 
+  const physicalDamage = rollDamage(stats.physicalDamageMin, stats.physicalDamageMax)
     * (1 + stats.increasedPhysicalDamage / 100);
-  
-  totalDamage += rollDamage(stats.fireDamageMin, stats.fireDamageMax)
+  const fireDamage = rollDamage(stats.fireDamageMin, stats.fireDamageMax)
     * (1 + stats.increasedFireDamage / 100);
-  totalDamage += rollDamage(stats.coldDamageMin, stats.coldDamageMax)
+  const coldDamage = rollDamage(stats.coldDamageMin, stats.coldDamageMax)
     * (1 + stats.increasedColdDamage / 100);
-  totalDamage += rollDamage(stats.lightningDamageMin, stats.lightningDamageMax)
+  const lightningDamage = rollDamage(stats.lightningDamageMin, stats.lightningDamageMax)
     * (1 + stats.increasedLightningDamage / 100);
+
+  let totalDamage = physicalDamage + fireDamage + coldDamage + lightningDamage;
+  let totalPhysicalDamage = physicalDamage;
   
   const isCrit = Math.random() * 100 < stats.criticalChance;
   if (isCrit) {
     totalDamage *= stats.criticalMultiplier / 100;
+    totalPhysicalDamage *= stats.criticalMultiplier / 100;
   }
   
-  return { damage: Math.floor(totalDamage), isCrit };
+  return {
+    damage: Math.floor(totalDamage),
+    physicalDamage: Math.floor(totalPhysicalDamage),
+    isCrit,
+  };
 }
 
 

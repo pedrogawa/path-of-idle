@@ -60,6 +60,9 @@ interface CharacterProps {
   name?: string;
   level?: number;
   spriteUrl?: string;
+  isBleeding?: boolean;
+  bleedRemainingDuration?: number;
+  bleedDps?: number;
 }
 
 function Character({
@@ -76,7 +79,10 @@ function Character({
   isTargeted,
   name,
   level,
-  spriteUrl
+  spriteUrl,
+  isBleeding,
+  bleedRemainingDuration,
+  bleedDps,
 }: CharacterProps) {
   const hpPercent = Math.max(0, (currentHp / maxHp) * 100);
 
@@ -172,6 +178,12 @@ function Character({
             <span className="text-[10px] text-gray-400 ml-1">
               Lv.{level}
             </span>
+          )}
+
+          {isBleeding && (
+            <div className="text-[10px] text-red-300 mt-0.5 bg-red-950/70 rounded px-1 py-0.5 border border-red-700/60">
+              🩸 Bleeding {bleedDps ? `${bleedDps.toFixed(0)} DPS` : ''} {bleedRemainingDuration ? `(${bleedRemainingDuration.toFixed(1)}s)` : ''}
+            </div>
           )}
         </div>
       )}
@@ -571,6 +583,9 @@ export function CombatArena() {
               isTargeted={isTargeted}
               name={monster.name}
               level={monster.level}
+              isBleeding={monster.bleedRemainingDuration > 0 && monster.bleedDps > 0}
+              bleedRemainingDuration={monster.bleedRemainingDuration}
+              bleedDps={monster.bleedDps}
             />
           );
         })}

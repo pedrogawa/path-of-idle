@@ -218,6 +218,25 @@ export function PlayerStats() {
           <span className="text-gray-400">Evasion</span>
           <span className="text-green-300">{stats.evasion}</span>
         </div>
+        <div className="flex justify-between">
+          <span className="text-gray-400">Energy Shield</span>
+          <span className="text-blue-300">{stats.energyShield}</span>
+        </div>
+        {stats.increasedEnergyShield > 0 && (
+          <div className="flex justify-between col-span-2 text-[10px]">
+            <span className="text-gray-500">+{stats.increasedEnergyShield.toFixed(0)}% Increased Energy Shield</span>
+          </div>
+        )}
+        {stats.increasedEvasion > 0 && (
+          <div className="flex justify-between col-span-2 text-[10px]">
+            <span className="text-gray-500">+{stats.increasedEvasion.toFixed(0)}% Increased Evasion</span>
+          </div>
+        )}
+        {stats.increasedArmor > 0 && (
+          <div className="flex justify-between col-span-2 text-[10px]">
+            <span className="text-gray-500">+{stats.increasedArmor.toFixed(0)}% Increased Armor</span>
+          </div>
+        )}
 
         <div className="flex justify-between">
           <span className="text-gray-400">Block</span>

@@ -19,7 +19,7 @@ import {
   checkLevelUp,
   computePlayerStats,
 } from '../lib/combat';
-import { canGemLevelUp } from '../lib/gems';
+import { canGemLevelUp, getGemRequiredCharacterLevelForLevel } from '../lib/gems';
 import { getSkillRuntimeStats } from '../lib/skills';
 import { generateLoot } from '../lib/loot';
 import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, isInMeleeRange } from '../lib/monsters';
@@ -34,6 +34,8 @@ const DEFAULT_SPAWN_INTERVAL = 3;
 const MAX_MONSTERS = 5;
 const FLASK_AUTO_USE_THRESHOLD = 0.5;
 const MAX_SUPPORT_SOCKETS = 5;
+const BLEED_DURATION_SECONDS = 5;
+const BLEED_TOTAL_DAMAGE_PERCENT_OF_PHYSICAL_HIT = 70;
 
 function createPlayerSkill(definitionId: string): PlayerSkill {
   return {
@@ -396,6 +398,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const skillDef = skillById.get(targetSkill.definitionId);
     if (!skillDef) return;
 
+    const nextGemLevel = targetSkill.level + 1;
+    const requiredCharacterLevel = getGemRequiredCharacterLevelForLevel(
+      nextGemLevel,
+      skillDef.requiredLevel,
+      skillDef.requiredCharacterLevelByGemLevel
+    );
+    if (state.player.level < requiredCharacterLevel) {
+      get().addLog('playerHit', `Requires character level ${requiredCharacterLevel} to level ${skillDef.name} to ${nextGemLevel}.`);
+      return;
+    }
+
     if (!canGemLevelUp(targetSkill.level, targetSkill.experience, skillDef.gemTotalExperienceByLevel)) return;
 
     const updatedSkills = [...state.player.skills];
@@ -422,6 +435,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const targetSkill = state.player.inactiveSkills[inactiveIndex];
     const skillDef = skillById.get(targetSkill.definitionId);
     if (!skillDef) return;
+    const nextGemLevel = targetSkill.level + 1;
+    const requiredCharacterLevel = getGemRequiredCharacterLevelForLevel(
+      nextGemLevel,
+      skillDef.requiredLevel,
+      skillDef.requiredCharacterLevelByGemLevel
+    );
+    if (state.player.level < requiredCharacterLevel) {
+      get().addLog('playerHit', `Requires character level ${requiredCharacterLevel} to level ${skillDef.name} to ${nextGemLevel}.`);
+      return;
+    }
+
     if (!canGemLevelUp(targetSkill.level, targetSkill.experience, skillDef.gemTotalExperienceByLevel)) return;
 
     const updatedInactiveSkills = [...state.player.inactiveSkills];
@@ -446,7 +470,25 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (supportIndex === -1) return;
 
     const supportGemInstance = state.player.supportGems[supportIndex];
-    if (!canGemLevelUp(supportGemInstance.level, supportGemInstance.experience)) return;
+    const supportDef = supportGemById.get(supportGemInstance.definitionId);
+    if (!supportDef) return;
+
+    const nextGemLevel = supportGemInstance.level + 1;
+    const requiredCharacterLevel = getGemRequiredCharacterLevelForLevel(
+      nextGemLevel,
+      supportDef.requiredLevel,
+      supportDef.requiredCharacterLevelByGemLevel
+    );
+    if (state.player.level < requiredCharacterLevel) {
+      get().addLog('playerHit', `Requires character level ${requiredCharacterLevel} to level ${supportDef.name} to ${nextGemLevel}.`);
+      return;
+    }
+
+    if (!canGemLevelUp(
+      supportGemInstance.level,
+      supportGemInstance.experience,
+      supportDef.gemTotalExperienceByLevel
+    )) return;
 
     const updatedSupportGems = [...state.player.supportGems];
     updatedSupportGems[supportIndex] = {
@@ -461,7 +503,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
     });
 
-    const supportDef = supportGemById.get(supportGemInstance.definitionId);
     get().addLog('levelUp', `💠 ${supportDef?.name || 'Support Gem'} reached level ${supportGemInstance.level + 1}!`);
   },
 
@@ -734,6 +775,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // ========== PLAYER SKILL USAGE ==========
     let playerAttackCooldown = state.playerAttackCooldown - deltaTime;
     const skillDamageMap: Map<string, number> = new Map(); // monster id -> damage
+    const pendingBleeds: Map<string, { dps: number; duration: number }> = new Map();
     let lifestealAmount = 0;
     
     if (targetMonster && playerAttackCooldown <= 0) {
@@ -768,9 +810,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       if (bestCandidate) {
         const { skillDef: bestSkillDef, runtime } = bestCandidate;
-        const { damage: weaponDamage, isCrit } = calculatePlayerDamage(player);
+        const { damage: weaponDamage, physicalDamage, isCrit } = calculatePlayerDamage(player);
         
         let skillDamage = weaponDamage * runtime.damageMultiplier;
+
+        if (runtime.extraFireFromPhysicalPercent) {
+          const extraFireFromPhysical = physicalDamage
+            * runtime.damageMultiplier
+            * (runtime.extraFireFromPhysicalPercent / 100)
+            * (1 + playerStats.increasedFireDamage / 100);
+          skillDamage += extraFireFromPhysical;
+        }
         
         if (runtime.addedDamageMax > 0 || runtime.addedDamageMin > 0) {
           const addedDamage = runtime.addedDamageMin +
@@ -789,14 +839,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
           // Crit already applied in calculatePlayerDamage for weapon portion
         }
         
-        const numHits = runtime.numberOfHits;
-        skillDamage *= numHits;
+        const totalHitDamageMultiplier = runtime.hitDamageMultipliers.reduce((sum, multiplier) => sum + multiplier, 0);
+        skillDamage *= totalHitDamageMultiplier;
+        let skillPhysicalDamage = physicalDamage * runtime.damageMultiplier * totalHitDamageMultiplier;
 
         const didDoubleDamage = runtime.doubleDamageChance
           ? Math.random() * 100 < runtime.doubleDamageChance
           : false;
         if (didDoubleDamage) {
           skillDamage *= 2;
+          skillPhysicalDamage *= 2;
         }
         
         const maxTargets = runtime.aoeRadius;
@@ -805,6 +857,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
         for (const target of targets) {
           const damageToTarget = Math.round(skillDamage);
           skillDamageMap.set(target.id, (skillDamageMap.get(target.id) || 0) + damageToTarget);
+
+          if (runtime.chanceToBleedPercent && skillPhysicalDamage > 0) {
+            const bleedRoll = Math.random() * 100;
+            if (bleedRoll < runtime.chanceToBleedPercent) {
+              const bleedTotalDamage = skillPhysicalDamage
+                * (BLEED_TOTAL_DAMAGE_PERCENT_OF_PHYSICAL_HIT / 100)
+                * (1 + (runtime.moreBleedingDamagePercent || 0) / 100);
+              const bleedDps = bleedTotalDamage / BLEED_DURATION_SECONDS;
+
+              const currentPendingBleed = pendingBleeds.get(target.id);
+              if (!currentPendingBleed || bleedDps > currentPendingBleed.dps) {
+                pendingBleeds.set(target.id, {
+                  dps: bleedDps,
+                  duration: BLEED_DURATION_SECONDS,
+                });
+              }
+            }
+          }
           
           if (runtime.lifestealPercent) {
             lifestealAmount += Math.round(damageToTarget * runtime.lifestealPercent / 100);
@@ -853,6 +923,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const damageToThisMonster = skillDamageMap.get(updatedMonster.id) || 0;
       if (damageToThisMonster > 0) {
         updatedMonster.currentLife -= damageToThisMonster;
+      }
+
+      const pendingBleed = pendingBleeds.get(updatedMonster.id);
+      if (pendingBleed) {
+        const hasActiveBleed = updatedMonster.bleedRemainingDuration > 0 && updatedMonster.bleedDps > 0;
+        if (!hasActiveBleed || pendingBleed.dps > updatedMonster.bleedDps) {
+          updatedMonster.bleedDps = pendingBleed.dps;
+          updatedMonster.bleedRemainingDuration = pendingBleed.duration;
+        }
+      }
+
+      if (updatedMonster.currentLife > 0 && updatedMonster.bleedRemainingDuration > 0 && updatedMonster.bleedDps > 0) {
+        const bleedDamage = updatedMonster.bleedDps * deltaTime;
+        updatedMonster.currentLife -= bleedDamage;
+        updatedMonster.bleedRemainingDuration = Math.max(0, updatedMonster.bleedRemainingDuration - deltaTime);
+        if (updatedMonster.bleedRemainingDuration <= 0) {
+          updatedMonster.bleedDps = 0;
+        }
       }
       
       if (updatedMonster.currentLife > 0 && inRange) {

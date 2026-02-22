@@ -1,12 +1,14 @@
+import { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { CombatArena } from '../components/CombatArena';
 import { CombatLog } from '../components/CombatLog';
 import { Inventory } from '../components/Inventory';
 import { PlayerStats } from '../components/PlayerStats';
 import { SkillBar } from '../components/SkillBar';
+import { ItemTooltipPortal } from '../components/ItemTooltip';
 import { computePlayerStats } from '../lib/combat';
 import { mapById } from '../data';
-import type { EquipmentSlot } from '../types';
+import type { EquipmentSlot, Item } from '../types';
 
 // Equipment slot layout for compact view
 const EQUIPMENT_SLOTS: { slot: EquipmentSlot; icon: string }[] = [
@@ -39,6 +41,7 @@ export function CombatScreen() {
   const stats = computePlayerStats(player);
   const map = currentMapId ? mapById.get(currentMapId) : null;
   const progress = currentMapId ? mapProgress[currentMapId] : null;
+  const [hoveredItem, setHoveredItem] = useState<{ item: Item; x: number; y: number } | null>(null);
   const expPercent = player.experience > 0
     ? Math.min(100, (player.experience / player.experienceToNextLevel) * 100)
     : 0;
@@ -166,6 +169,17 @@ export function CombatScreen() {
                   return (
                     <div
                       key={slot}
+                      onMouseEnter={(e) => {
+                        if (!item) return;
+                        setHoveredItem({ item, x: e.clientX, y: e.clientY });
+                      }}
+                      onMouseMove={(e) => {
+                        if (!item) return;
+                        setHoveredItem({ item, x: e.clientX, y: e.clientY });
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredItem(current => (current?.item.id === item?.id ? null : current));
+                      }}
                       className={`aspect-square rounded-lg flex flex-col items-center justify-center text-lg border-2 transition-all ${item
                         ? `${RARITY_COLORS[item.rarity]} bg-[#1a1a24] hover:brightness-110`
                         : 'bg-[#0a0a0f] border-dashed border-[#2a2a3a]'
@@ -186,6 +200,14 @@ export function CombatScreen() {
                   );
                 })}
               </div>
+
+              {hoveredItem && (
+                <ItemTooltipPortal
+                  item={hoveredItem.item}
+                  position={{ x: hoveredItem.x, y: hoveredItem.y }}
+                  label="Equipped"
+                />
+              )}
             </div>
 
             {/* Flasks */}

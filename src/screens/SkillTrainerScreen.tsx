@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { getBuyableSkills, getSkillPurchaseCost, supportGems, supportGemById, skillById } from '../data';
-import { canGemLevelUp, getGemNextLevelTotalExperience } from '../lib/gems';
+import { canGemLevelUp, getGemNextLevelTotalExperience, getGemRequiredCharacterLevelForLevel } from '../lib/gems';
 import { estimateSkillDamageRange, getSkillRuntimeStats } from '../lib/skills';
 
 // Bottom padding when combat mini panel is shown
@@ -136,7 +136,14 @@ export function SkillTrainerScreen() {
                 const socketedNames = runtime.supportGems.map(gem => gem.name).join(', ');
                 const supportsForSkill = supportGems.filter(gem => gem.compatibleSkillTypes.includes(skillDef.type));
                 const nextSkillLevelTotalXp = getGemNextLevelTotalExperience(skill.level, skillDef.gemTotalExperienceByLevel);
-                const skillCanLevel = canGemLevelUp(skill.level, skill.experience, skillDef.gemTotalExperienceByLevel);
+                const nextSkillRequiredLevel = getGemRequiredCharacterLevelForLevel(
+                  skill.level + 1,
+                  skillDef.requiredLevel,
+                  skillDef.requiredCharacterLevelByGemLevel
+                );
+                const hasRequiredCharacterLevel = player.level >= nextSkillRequiredLevel;
+                const skillCanLevel = hasRequiredCharacterLevel
+                  && canGemLevelUp(skill.level, skill.experience, skillDef.gemTotalExperienceByLevel);
 
                 return (
                   <div
@@ -172,8 +179,17 @@ export function SkillTrainerScreen() {
                         <div className="text-xs text-gray-500">
                           Damage Effectiveness {(runtime.damageMultiplier * 100).toFixed(1)}% • Double Damage {Math.round(runtime.doubleDamageChance || 0)}%
                         </div>
+                        <div className="text-xs text-gray-500">
+                          Physical as Extra Fire {Math.round(runtime.extraFireFromPhysicalPercent || 0)}%
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Chance to Bleed {Math.round(runtime.chanceToBleedPercent || 0)}% • More Bleeding Damage {Math.round(runtime.moreBleedingDamagePercent || 0)}%
+                        </div>
                         <div className="text-xs text-indigo-300">
                           Gem XP {skill.experience.toLocaleString()} / {nextSkillLevelTotalXp?.toLocaleString() || 'MAX'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Next Level Requires Character Lv. {nextSkillLevelTotalXp ? nextSkillRequiredLevel : 'MAX'}
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -181,7 +197,7 @@ export function SkillTrainerScreen() {
                           onClick={() => levelUpSkillGem(slotIndex)}
                           disabled={!skillCanLevel}
                           className="px-2 py-1 text-xs rounded border border-indigo-700/50 text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-900/20"
-                          title="Level up gem"
+                          title={hasRequiredCharacterLevel ? 'Level up gem' : `Requires character level ${nextSkillRequiredLevel}`}
                         >
                           +
                         </button>
@@ -268,7 +284,14 @@ export function SkillTrainerScreen() {
                   const skillDef = skillById.get(skill.definitionId);
                   if (!skillDef) return null;
                   const nextLevelTotalXp = getGemNextLevelTotalExperience(skill.level, skillDef.gemTotalExperienceByLevel);
-                  const canLevel = canGemLevelUp(skill.level, skill.experience, skillDef.gemTotalExperienceByLevel);
+                  const nextRequiredLevel = getGemRequiredCharacterLevelForLevel(
+                    skill.level + 1,
+                    skillDef.requiredLevel,
+                    skillDef.requiredCharacterLevelByGemLevel
+                  );
+                  const hasRequiredCharacterLevel = player.level >= nextRequiredLevel;
+                  const canLevel = hasRequiredCharacterLevel
+                    && canGemLevelUp(skill.level, skill.experience, skillDef.gemTotalExperienceByLevel);
 
                   return (
                     <div key={`${skill.definitionId}_${index}`} className="rounded-lg border border-[#2a2a3a] bg-[#0a0a0f] p-3 flex items-center justify-between gap-3">
@@ -277,13 +300,16 @@ export function SkillTrainerScreen() {
                         <div className="text-xs text-gray-500">
                           Lv.{skill.level} • XP {skill.experience.toLocaleString()} / {nextLevelTotalXp?.toLocaleString() || 'MAX'} • Sockets {skill.maxSupportSockets}
                         </div>
+                        <div className="text-xs text-gray-500">
+                          Next Level Requires Character Lv. {nextLevelTotalXp ? nextRequiredLevel : 'MAX'}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => levelUpInactiveSkillGem(skill.definitionId)}
                           disabled={!canLevel}
                           className="px-2 py-1 text-xs rounded border border-indigo-700/50 text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-900/20"
-                          title="Level up gem"
+                          title={hasRequiredCharacterLevel ? 'Level up gem' : `Requires character level ${nextRequiredLevel}`}
                         >
                           +
                         </button>
@@ -356,8 +382,21 @@ export function SkillTrainerScreen() {
                   {supportInstances.length > 0 && (
                     <div className="mt-2 space-y-1">
                       {supportInstances.map((supportInstance, index) => {
-                        const nextLevelTotalXp = getGemNextLevelTotalExperience(supportInstance.level);
-                        const canLevel = canGemLevelUp(supportInstance.level, supportInstance.experience);
+                        const nextLevelTotalXp = getGemNextLevelTotalExperience(
+                          supportInstance.level,
+                          support.gemTotalExperienceByLevel
+                        );
+                        const nextRequiredLevel = getGemRequiredCharacterLevelForLevel(
+                          supportInstance.level + 1,
+                          support.requiredLevel,
+                          support.requiredCharacterLevelByGemLevel
+                        );
+                        const hasRequiredCharacterLevel = player.level >= nextRequiredLevel;
+                        const canLevel = hasRequiredCharacterLevel && canGemLevelUp(
+                          supportInstance.level,
+                          supportInstance.experience,
+                          support.gemTotalExperienceByLevel
+                        );
                         const isLinked = socketedSupportInstanceIds.has(supportInstance.instanceId);
                         return (
                           <div key={supportInstance.instanceId} className="text-[11px] rounded border border-[#2a2a3a] bg-[#12121a] px-2 py-1 flex items-center justify-between gap-2">
@@ -368,12 +407,15 @@ export function SkillTrainerScreen() {
                               <div className="text-gray-500">
                                 XP {supportInstance.experience.toLocaleString()} / {nextLevelTotalXp?.toLocaleString() || 'MAX'}
                               </div>
+                              <div className="text-gray-500">
+                                Next Req Lv. {nextLevelTotalXp ? nextRequiredLevel : 'MAX'}
+                              </div>
                             </div>
                             <button
                               onClick={() => levelUpSupportGem(supportInstance.instanceId)}
                               disabled={!canLevel}
                               className="px-1.5 py-0.5 text-[11px] rounded border border-indigo-700/50 text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-indigo-900/20"
-                              title="Level up support gem"
+                              title={hasRequiredCharacterLevel ? 'Level up support gem' : `Requires character level ${nextRequiredLevel}`}
                             >
                               +
                             </button>
