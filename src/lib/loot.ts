@@ -248,8 +248,15 @@ export function generateItem(
 ): Item | null {
   const availableBases = itemBases.filter(b => b.dropLevel <= monsterLevel);
   if (availableBases.length === 0) return null;
-  
-  const weights = availableBases.map(b => 1 + (monsterLevel - b.dropLevel) * 0.1);
+
+  // Bias toward bases near the current area level.
+  // This keeps progression feeling natural while still allowing occasional older bases.
+  const sigma = Math.max(3, monsterLevel * 0.18);
+  const weights = availableBases.map(b => {
+    const levelDelta = monsterLevel - b.dropLevel;
+    const gaussianWeight = Math.exp(-(levelDelta * levelDelta) / (2 * sigma * sigma));
+    return 0.001 + gaussianWeight;
+  });
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   
   let roll = Math.random() * totalWeight;
