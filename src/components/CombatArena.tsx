@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { computePlayerStats } from '../lib/combat';
-import { isInMeleeRange, getBestTarget } from '../lib/monsters';
+import { isInMeleeRange, getBestTarget, PLAYER_ARENA_POSITION, getArenaObstaclesForMap } from '../lib/monsters';
 import { mapById } from '../data';
 import type { Monster } from '../types';
 
@@ -27,11 +27,6 @@ interface LootDrop {
 }
 
 const ARENA_HEIGHT = 220;
-const PLAYER_X = 12;
-const MELEE_X = 25;
-const SPAWN_X = 92;
-
-const MONSTER_Y_POSITIONS = [0.5, 0.25, 0.75, 0.15, 0.85];
 
 const RARITY_COLORS = {
   normal: { primary: '#9ca3af', secondary: '#6b7280', glow: 'rgba(156, 163, 175, 0.3)' },
@@ -40,9 +35,189 @@ const RARITY_COLORS = {
   boss: { primary: '#dc2626', secondary: '#991b1b', glow: 'rgba(220, 38, 38, 0.6)' },
 };
 
-function getMonsterX(distance: number): number {
-  const t = distance / 100;
-  return MELEE_X + (SPAWN_X - MELEE_X) * t;
+interface CombatArenaProps {
+  fullScreen?: boolean;
+  showOverlayBars?: boolean;
+  arenaHeight?: number | string;
+  className?: string;
+}
+
+interface BiomeVisual {
+  skyTop: string;
+  skyBottom: string;
+  horizonGlow: string;
+  floorFar: string;
+  floorNear: string;
+  laneColor: string;
+  propA: string;
+  propB: string;
+}
+
+const DEFAULT_BIOME_VISUAL: BiomeVisual = {
+  skyTop: '#101624',
+  skyBottom: '#1b2233',
+  horizonGlow: 'rgba(120, 140, 190, 0.25)',
+  floorFar: '#223042',
+  floorNear: '#151b28',
+  laneColor: 'rgba(173, 194, 226, 0.14)',
+  propA: '#2a3c57',
+  propB: '#1f2a3b',
+};
+
+const BIOME_VISUALS: Record<string, BiomeVisual> = {
+  beach: {
+    skyTop: '#3f4e64',
+    skyBottom: '#6f7b8e',
+    horizonGlow: 'rgba(248, 222, 155, 0.32)',
+    floorFar: '#c8a977',
+    floorNear: '#8d7249',
+    laneColor: 'rgba(255, 239, 189, 0.2)',
+    propA: '#b98e5b',
+    propB: '#7e613a',
+  },
+  cave: {
+    skyTop: '#0d1118',
+    skyBottom: '#1b2535',
+    horizonGlow: 'rgba(113, 152, 209, 0.26)',
+    floorFar: '#2e3647',
+    floorNear: '#1b202c',
+    laneColor: 'rgba(154, 180, 220, 0.14)',
+    propA: '#39455e',
+    propB: '#232d3f',
+  },
+  shipwreck: {
+    skyTop: '#2d374b',
+    skyBottom: '#4b5a74',
+    horizonGlow: 'rgba(236, 179, 131, 0.24)',
+    floorFar: '#5e4738',
+    floorNear: '#34271f',
+    laneColor: 'rgba(227, 189, 157, 0.14)',
+    propA: '#6a4f3a',
+    propB: '#413324',
+  },
+  underwater: {
+    skyTop: '#123142',
+    skyBottom: '#27556d',
+    horizonGlow: 'rgba(121, 212, 255, 0.2)',
+    floorFar: '#2f687a',
+    floorNear: '#214959',
+    laneColor: 'rgba(142, 230, 255, 0.15)',
+    propA: '#3d8091',
+    propB: '#245363',
+  },
+  temple: {
+    skyTop: '#2c2730',
+    skyBottom: '#4e4250',
+    horizonGlow: 'rgba(220, 182, 122, 0.24)',
+    floorFar: '#6a5740',
+    floorNear: '#3f3327',
+    laneColor: 'rgba(242, 214, 164, 0.15)',
+    propA: '#7e6648',
+    propB: '#4e3f2d',
+  },
+  ruins: {
+    skyTop: '#1f2a2f',
+    skyBottom: '#3b4951',
+    horizonGlow: 'rgba(160, 207, 188, 0.22)',
+    floorFar: '#53645d',
+    floorNear: '#323d39',
+    laneColor: 'rgba(183, 225, 209, 0.14)',
+    propA: '#5e726a',
+    propB: '#384541',
+  },
+  lair: {
+    skyTop: '#261d2c',
+    skyBottom: '#453553',
+    horizonGlow: 'rgba(215, 133, 203, 0.2)',
+    floorFar: '#5f3a68',
+    floorNear: '#321e3d',
+    laneColor: 'rgba(239, 166, 255, 0.13)',
+    propA: '#71457e',
+    propB: '#422851',
+  },
+  abyss: {
+    skyTop: '#101423',
+    skyBottom: '#182145',
+    horizonGlow: 'rgba(92, 119, 221, 0.2)',
+    floorFar: '#26325c',
+    floorNear: '#151b34',
+    laneColor: 'rgba(133, 156, 255, 0.13)',
+    propA: '#334477',
+    propB: '#1d294b',
+  },
+  throne: {
+    skyTop: '#221724',
+    skyBottom: '#3a233c',
+    horizonGlow: 'rgba(255, 164, 90, 0.2)',
+    floorFar: '#59403b',
+    floorNear: '#352622',
+    laneColor: 'rgba(255, 202, 144, 0.14)',
+    propA: '#765148',
+    propB: '#48322d',
+  },
+  maelstrom: {
+    skyTop: '#101423',
+    skyBottom: '#2b2d58',
+    horizonGlow: 'rgba(103, 134, 255, 0.24)',
+    floorFar: '#39458a',
+    floorNear: '#1f2450',
+    laneColor: 'rgba(172, 190, 255, 0.17)',
+    propA: '#4b5ca0',
+    propB: '#283569',
+  },
+};
+
+interface TerrainProp {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color: string;
+}
+
+function getBiomeVisual(biome?: string): BiomeVisual {
+  if (!biome) return DEFAULT_BIOME_VISUAL;
+  return BIOME_VISUALS[biome] ?? DEFAULT_BIOME_VISUAL;
+}
+
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function pseudoRandom(seed: number): () => number {
+  let s = seed;
+  return () => {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967295;
+  };
+}
+
+function buildTerrainProps(mapId: string, palette: BiomeVisual): TerrainProp[] {
+  const random = pseudoRandom(hashString(mapId));
+  const props: TerrainProp[] = [];
+
+  for (let i = 0; i < 15; i += 1) {
+    const y = 22 + random() * 62;
+    const depthScale = 0.45 + y / 130;
+    props.push({
+      id: `terrain-prop-${i}`,
+      x: 10 + random() * 80,
+      y,
+      w: (8 + random() * 15) * depthScale,
+      h: (14 + random() * 26) * depthScale,
+      color: i % 2 === 0 ? palette.propA : palette.propB,
+    });
+  }
+
+  return props.sort((a, b) => a.y - b.y);
 }
 
 interface CharacterProps {
@@ -85,6 +260,12 @@ function Character({
   bleedDps,
 }: CharacterProps) {
   const hpPercent = Math.max(0, (currentHp / maxHp) * 100);
+  const bodyWidth = Math.max(12, size * (type === 'player' ? 0.34 : 0.38));
+  const bodyHeight = Math.max(28, size * (type === 'player' ? 0.95 : 0.84));
+  const shadowWidth = Math.max(18, size * 0.7);
+  const shadowHeight = Math.max(6, size * 0.2);
+  const torsoTopOffset = type === 'player' ? size * 0.14 : size * 0.2;
+  const peakHeight = Math.max(6, size * 0.14);
 
   return (
     <div
@@ -107,31 +288,89 @@ function Character({
           style={{ width: size, height: size }}
         />
       ) : (
-        <div
-          className={`rounded-full flex items-center justify-center font-bold text-white relative transition-all duration-100`}
-          style={{
-            width: size,
-            height: size,
-            background: `radial-gradient(circle at 30% 30%, ${color.primary}, ${color.secondary})`,
-            boxShadow: `0 0 ${isAttacking ? 25 : 12}px ${color.glow}, inset 0 -5px 15px rgba(0,0,0,0.4)`,
-            border: `3px solid ${color.primary}`,
-            transform: isAttacking ? 'scale(1.05)' : 'scale(1)',
-          }}
-        >
-          <span className="select-none" style={{ fontSize: size * 0.4 }}>
-            {type === 'player' ? '⚔️' : '💀'}
-          </span>
-
-          {/* Shine */}
+        <div className="relative" style={{ width: size, height: size }}>
+          {/* Ground shadow */}
           <div
-            className="absolute rounded-full bg-white/30"
+            className="absolute left-1/2 -translate-x-1/2 rounded-[999px] blur-[1px]"
             style={{
-              width: size * 0.2,
-              height: size * 0.2,
-              top: size * 0.1,
-              left: size * 0.15,
+              width: shadowWidth,
+              height: shadowHeight,
+              bottom: 2,
+              background: 'rgba(0,0,0,0.48)',
+              transform: isAttacking ? 'scale(1.2)' : 'scale(1)',
+              transition: 'transform 0.12s ease-out',
             }}
           />
+
+          {/* Main body - elongated geometric prism */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 transition-all duration-100"
+            style={{
+              width: bodyWidth,
+              height: bodyHeight,
+              top: torsoTopOffset,
+              borderRadius: type === 'player' ? 10 : 7,
+              background: `linear-gradient(135deg, ${color.primary} 0%, ${color.secondary} 82%)`,
+              border: `2px solid ${color.primary}`,
+              boxShadow: `0 0 ${isAttacking ? 20 : 11}px ${color.glow}, inset -4px -6px 10px rgba(0,0,0,0.32), inset 3px 2px 6px rgba(255,255,255,0.12)`,
+              transform: isAttacking ? 'translateY(-2px) scale(1.08)' : 'translateY(0) scale(1)',
+            }}
+          >
+            {/* Prism face */}
+            <div
+              className="absolute"
+              style={{
+                top: -peakHeight,
+                left: type === 'player' ? 1 : -1,
+                width: bodyWidth - 2,
+                height: peakHeight + 2,
+                clipPath: 'polygon(50% 0%, 100% 100%, 0% 100%)',
+                background: `linear-gradient(180deg, ${color.primary}, ${color.secondary})`,
+                opacity: 0.95,
+              }}
+            />
+
+            {/* Highlight strip */}
+            <div
+              className="absolute rounded-[999px]"
+              style={{
+                width: Math.max(3, bodyWidth * 0.13),
+                height: bodyHeight * 0.76,
+                left: type === 'player' ? bodyWidth * 0.12 : bodyWidth * 0.18,
+                top: bodyHeight * 0.08,
+                background: 'rgba(255,255,255,0.28)',
+                filter: 'blur(0.2px)',
+              }}
+            />
+
+            {/* Facing marker */}
+            <div
+              className="absolute rounded-[999px]"
+              style={{
+                width: Math.max(5, bodyWidth * 0.22),
+                height: Math.max(5, bodyWidth * 0.22),
+                top: bodyHeight * 0.15,
+                right: bodyWidth * 0.17,
+                background: type === 'player' ? 'rgba(214, 255, 220, 0.85)' : 'rgba(255, 228, 210, 0.85)',
+                boxShadow: '0 0 8px rgba(255,255,255,0.4)',
+              }}
+            />
+          </div>
+
+          {/* Attack trail */}
+          {isAttacking && (
+            <div
+              className="absolute top-1/2 -translate-y-1/2"
+              style={{
+                [type === 'player' ? 'left' : 'right']: -10,
+                width: 18,
+                height: 4,
+                borderRadius: 999,
+                background: `linear-gradient(to ${type === 'player' ? 'right' : 'left'}, ${color.primary}, transparent)`,
+                boxShadow: `0 0 9px ${color.glow}`,
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -291,7 +530,12 @@ function LootDropAnimation({ loot }: { loot: LootDrop }) {
 // MAIN ARENA
 // ============================================
 
-export function CombatArena() {
+export function CombatArena({
+  fullScreen = false,
+  showOverlayBars = true,
+  arenaHeight = ARENA_HEIGHT,
+  className = '',
+}: CombatArenaProps = {}) {
   const player = useGameStore(state => state.player);
   const currentMapId = useGameStore(state => state.currentMapId);
   const monsters = useGameStore(state => state.monsters);
@@ -306,6 +550,15 @@ export function CombatArena() {
 
   const playerStats = computePlayerStats(player);
   const map = currentMapId ? mapById.get(currentMapId) : null;
+  const biomeVisual = useMemo(() => getBiomeVisual(map?.biome), [map?.biome]);
+  const terrainProps = useMemo(
+    () => (map ? buildTerrainProps(map.id, biomeVisual) : []),
+    [map, biomeVisual],
+  );
+  const mapObstacles = useMemo(
+    () => (map ? getArenaObstaclesForMap(map.id) : []),
+    [map],
+  );
 
   const [playerAttacking, setPlayerAttacking] = useState(false);
   const [attackingMonsters, setAttackingMonsters] = useState<Set<string>>(new Set());
@@ -350,13 +603,7 @@ export function CombatArena() {
   }, []);
 
   const getMonsterPosition = useCallback((monster: Monster): { x: number; y: number } => {
-    const x = getMonsterX(monster.distance);
-
-    const y = monster.rarity === 'boss'
-      ? 0.5
-      : MONSTER_Y_POSITIONS[monster.positionIndex % MONSTER_Y_POSITIONS.length];
-
-    return { x, y };
+    return { x: monster.arenaX, y: monster.arenaY };
   }, []);
 
   useEffect(() => {
@@ -373,14 +620,14 @@ export function CombatArena() {
 
         requestAnimationFrame(() => {
           setPlayerAttacking(true);
-          spawnDamage(damage, pos.x, pos.y * 100, true, damage > playerStats.averageHit * 1.3);
+          spawnDamage(damage, pos.x, pos.y, true, damage > playerStats.averageHit * 1.3);
           setTimeout(() => setPlayerAttacking(false), 100);
         });
 
         if (monster.currentLife <= 0) {
           requestAnimationFrame(() => {
             setDyingMonsters(prev => new Set([...prev, monster.id]));
-            spawnLoot(pos.x, pos.y * 100, monster.rarity);
+            spawnLoot(pos.x, pos.y, monster.rarity);
           });
         }
       }
@@ -413,7 +660,7 @@ export function CombatArena() {
               });
             }, 100);
           }
-          spawnDamage(damage, PLAYER_X, 50, false);
+          spawnDamage(damage, PLAYER_ARENA_POSITION.x, PLAYER_ARENA_POSITION.y, false);
         });
       }
     }
@@ -430,11 +677,11 @@ export function CombatArena() {
       for (const entry of newEntries) {
         if (entry.type === 'evade') {
           requestAnimationFrame(() => {
-            spawnDamage(0, PLAYER_X, 50, false, false, 'evade');
+            spawnDamage(0, PLAYER_ARENA_POSITION.x, PLAYER_ARENA_POSITION.y, false, false, 'evade');
           });
         } else if (entry.type === 'block') {
           requestAnimationFrame(() => {
-            spawnDamage(0, PLAYER_X, 50, false, false, 'block');
+            spawnDamage(0, PLAYER_ARENA_POSITION.x, PLAYER_ARENA_POSITION.y, false, false, 'block');
           });
         }
       }
@@ -443,8 +690,26 @@ export function CombatArena() {
   }, [combatLog, spawnDamage]);
 
   if (combatState === 'idle' || !map) {
+    if (fullScreen) {
+      return (
+        <div
+          className={`relative flex items-center justify-center ${className}`}
+          style={{
+            height: arenaHeight,
+            background: 'linear-gradient(to bottom, #0a0a0f 0%, #151520 50%, #0a0a0f 100%)',
+          }}
+        >
+          <div className="text-center">
+            <div className="text-6xl mb-4 animate-bounce">⚔️</div>
+            <h3 className="text-xl font-bold text-gray-300 mb-2">Ready for Battle</h3>
+            <p className="text-gray-400 text-sm">Select a map to start hunting</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="bg-[#12121a] rounded-lg border border-[#2a2a3a] overflow-hidden">
+      <div className={`bg-[#12121a] rounded-lg border border-[#2a2a3a] overflow-hidden ${className}`}>
         <div className="bg-[#0a0a0f] px-4 py-2 border-b border-[#2a2a3a]">
           <h2 className="text-lg font-bold text-[#c9a227]">⚔️ Combat Arena</h2>
         </div>
@@ -467,89 +732,167 @@ export function CombatArena() {
   }
 
   return (
-    <div className="bg-[#12121a] rounded-lg border border-[#2a2a3a] overflow-hidden">
+    <div className={`${fullScreen ? 'relative w-full h-full overflow-hidden' : 'bg-[#12121a] rounded-lg border border-[#2a2a3a] overflow-hidden'} ${className}`}>
       {/* Header */}
-      <div className="bg-[#0a0a0f] px-4 py-2 border-b border-[#2a2a3a] flex justify-between items-center">
-        <h2 className="text-lg font-bold text-[#c9a227]">⚔️ {map.name}</h2>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
-            Monsters: <span className="text-white font-medium">{monsters.length}</span>
-          </span>
-          {!isBossFight && !bossReady && (
+      {showOverlayBars && (
+        <div className="bg-[#0a0a0f] px-4 py-2 border-b border-[#2a2a3a] flex justify-between items-center">
+          <h2 className="text-lg font-bold text-[#c9a227]">⚔️ {map.name}</h2>
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">
-              Next: <span className="text-green-400 font-medium">{spawnTimer.toFixed(1)}s</span>
+              Monsters: <span className="text-white font-medium">{monsters.length}</span>
             </span>
-          )}
-          {combatState === 'fighting' && !bossReady && (
-            <div className="flex items-center gap-1 px-2 py-0.5 bg-green-900/30 rounded-full border border-green-700/50">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-xs text-green-400">Fighting</span>
-            </div>
-          )}
-          {isBossFight && (
-            <div className="px-2 py-0.5 bg-red-900/30 rounded-full border border-red-700/50 animate-pulse">
-              <span className="text-xs text-red-400">⚠️ BOSS FIGHT</span>
-            </div>
-          )}
-          {bossReady && !isBossFight && (
-            <button
-              onClick={startBossFight}
-              className="px-3 py-1 bg-gradient-to-r from-red-600 to-red-800 text-white text-xs font-bold rounded
+            {!isBossFight && !bossReady && (
+              <span className="text-xs text-gray-500">
+                Next: <span className="text-green-400 font-medium">{spawnTimer.toFixed(1)}s</span>
+              </span>
+            )}
+            {combatState === 'fighting' && !bossReady && (
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-green-900/30 rounded-full border border-green-700/50">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                <span className="text-xs text-green-400">Fighting</span>
+              </div>
+            )}
+            {isBossFight && (
+              <div className="px-2 py-0.5 bg-red-900/30 rounded-full border border-red-700/50 animate-pulse">
+                <span className="text-xs text-red-400">⚠️ BOSS FIGHT</span>
+              </div>
+            )}
+            {bossReady && !isBossFight && (
+              <button
+                onClick={startBossFight}
+                className="px-3 py-1 bg-gradient-to-r from-red-600 to-red-800 text-white text-xs font-bold rounded
                        hover:from-red-500 hover:to-red-700 transition-all animate-pulse
                        shadow-lg shadow-red-900/50 border border-red-500/50"
-            >
-              👹 Challenge Boss
-            </button>
-          )}
-          {/* Auto-spawn toggle (only after first clear) */}
-          {mapProgress && mapProgress.timesCleared > 0 && !isBossFight && (
-            <button
-              onClick={toggleAutoBossSpawn}
-              title={mapProgress.autoBossSpawn ? 'Boss auto-spawns after kills' : 'Click to enable auto boss spawn'}
-              className={`px-2 py-1 rounded text-xs transition-all ${mapProgress.autoBossSpawn
-                ? 'bg-green-900/50 text-green-400 border border-green-700/50'
-                : 'bg-gray-800/50 text-gray-500 border border-gray-600/50 hover:border-gray-500'
-                }`}
-            >
-              {mapProgress.autoBossSpawn ? '🔄 Auto' : '🔄'}
-            </button>
-          )}
+              >
+                👹 Challenge Boss
+              </button>
+            )}
+            {/* Auto-spawn toggle (only after first clear) */}
+            {mapProgress && mapProgress.timesCleared > 0 && !isBossFight && (
+              <button
+                onClick={toggleAutoBossSpawn}
+                title={mapProgress.autoBossSpawn ? 'Boss auto-spawns after kills' : 'Click to enable auto boss spawn'}
+                className={`px-2 py-1 rounded text-xs transition-all ${mapProgress.autoBossSpawn
+                  ? 'bg-green-900/50 text-green-400 border border-green-700/50'
+                  : 'bg-gray-800/50 text-gray-500 border border-gray-600/50 hover:border-gray-500'
+                  }`}
+              >
+                {mapProgress.autoBossSpawn ? '🔄 Auto' : '🔄'}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Arena */}
       <div
         className="relative overflow-hidden"
         style={{
-          height: ARENA_HEIGHT,
-          background: 'linear-gradient(180deg, #0d0d14 0%, #12121c 40%, #0d0d14 100%)',
+          height: showOverlayBars ? arenaHeight : '100%',
+          background: `linear-gradient(180deg, ${biomeVisual.skyTop} 0%, ${biomeVisual.skyBottom} 39%, ${biomeVisual.floorFar} 40%, ${biomeVisual.floorNear} 100%)`,
         }}
       >
-        {/* Ground effect */}
+        {/* Horizon glow */}
         <div
-          className="absolute left-0 right-0 h-px"
+          className="absolute left-0 right-0 pointer-events-none"
           style={{
-            top: '65%',
-            background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)',
+            top: '34%',
+            height: '16%',
+            background: `radial-gradient(ellipse at center, ${biomeVisual.horizonGlow} 0%, rgba(0,0,0,0) 70%)`,
           }}
         />
 
+        {/* Pseudo-3D floor planes */}
+        <div
+          className="absolute left-[-4%] right-[-4%] pointer-events-none"
+          style={{
+            top: '38%',
+            bottom: '-6%',
+            background: `linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(0,0,0,0.22) 74%), repeating-linear-gradient(165deg, ${biomeVisual.laneColor} 0px, ${biomeVisual.laneColor} 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 28px)`,
+            clipPath: 'polygon(8% 0%, 92% 0%, 100% 100%, 0% 100%)',
+            opacity: 0.9,
+          }}
+        />
+
+        <div
+          className="absolute left-[-3%] right-[-3%] pointer-events-none"
+          style={{
+            top: '42%',
+            bottom: '-10%',
+            background: `linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.28) 80%)`,
+            clipPath: 'polygon(14% 0%, 86% 0%, 98% 100%, 2% 100%)',
+          }}
+        />
+
+        {/* Geometric props to hint map volume */}
+        {terrainProps.map(prop => (
+          <div
+            key={prop.id}
+            className="absolute pointer-events-none"
+            style={{
+              left: `${prop.x}%`,
+              top: `${prop.y}%`,
+              transform: 'translate(-50%, -50%)',
+              width: `${prop.w}px`,
+              height: `${prop.h}px`,
+              background: `linear-gradient(120deg, ${prop.color} 0%, rgba(0,0,0,0.28) 100%)`,
+              border: '1px solid rgba(255,255,255,0.09)',
+              boxShadow: 'inset -8px -8px 10px rgba(0,0,0,0.25)',
+              clipPath: 'polygon(15% 0%, 100% 20%, 85% 100%, 0% 78%)',
+              opacity: 0.55,
+              zIndex: prop.y < 52 ? 2 : 4,
+            }}
+          >
+            <div
+              className="absolute left-1/2 -translate-x-1/2"
+              style={{
+                bottom: -4,
+                width: '85%',
+                height: 5,
+                borderRadius: 999,
+                background: 'rgba(0,0,0,0.3)',
+                filter: 'blur(0.5px)',
+              }}
+            />
+          </div>
+        ))}
+
+        {/* Solid walls / blockers */}
+        {mapObstacles.map((obstacle, index) => (
+          <div
+            key={`wall_${index}_${obstacle.x}_${obstacle.y}`}
+            className="absolute pointer-events-none"
+            style={{
+              left: `${obstacle.x}%`,
+              top: `${obstacle.y}%`,
+              width: `${obstacle.width}%`,
+              height: `${obstacle.height}%`,
+              background: 'linear-gradient(145deg, rgba(40,48,66,0.8), rgba(23,29,43,0.88))',
+              border: '1px solid rgba(138,156,191,0.35)',
+              boxShadow: 'inset -8px -8px 10px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.25)',
+              borderRadius: 8,
+              zIndex: obstacle.y > 50 ? 4 : 3,
+            }}
+          />
+        ))}
+
         {/* Ambient particles */}
-        {[...Array(6)].map((_, i) => (
+        {[...Array(8)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-1 h-1 bg-white/10 rounded-full animate-float-particle"
+            className="absolute w-1 h-1 rounded-full animate-float-particle pointer-events-none"
             style={{
-              left: `${15 + i * 14}%`,
-              top: `${25 + (i % 3) * 20}%`,
-              animationDelay: `${i * 0.7}s`,
+              left: `${8 + i * 11}%`,
+              top: `${17 + (i % 4) * 17}%`,
+              animationDelay: `${i * 0.55}s`,
+              background: 'rgba(255,255,255,0.16)',
             }}
           />
         ))}
 
         <Character
           type="player"
-          position={{ x: PLAYER_X, y: 50 }}
+          position={{ x: PLAYER_ARENA_POSITION.x, y: PLAYER_ARENA_POSITION.y }}
           size={55}
           color={{ primary: '#22c55e', secondary: '#15803d', glow: 'rgba(34, 197, 94, 0.5)' }}
           currentHp={player.currentLife}
@@ -572,7 +915,7 @@ export function CombatArena() {
             <Character
               key={monster.id}
               type="monster"
-              position={{ x: pos.x, y: pos.y * 100 }}
+              position={{ x: pos.x, y: pos.y }}
               size={size}
               color={color}
               currentHp={monster.currentLife}
@@ -602,45 +945,47 @@ export function CombatArena() {
       </div>
 
       {/* Stats bar */}
-      <div className="bg-[#0a0a0f] px-4 py-2 border-t border-[#2a2a3a] flex justify-between text-xs">
-        <div className="flex gap-4">
-          <span className="text-gray-400">
-            DPS: <span className="text-green-400 font-medium">{playerStats.dps.toFixed(1)}</span>
-          </span>
-          <span className="text-gray-400">
-            HP: <span className="text-red-400 font-medium">{Math.floor(player.currentLife)}/{Math.floor(playerStats.maxLife)}</span>
-          </span>
-        </div>
-        <div className="text-gray-400 flex gap-3">
-          {(() => {
-            const inMelee = monsters.filter(m => isInMeleeRange(m));
-            const approaching = monsters.filter(m => !isInMeleeRange(m));
-            const target = getBestTarget(monsters);
+      {showOverlayBars && (
+        <div className="bg-[#0a0a0f] px-4 py-2 border-t border-[#2a2a3a] flex justify-between text-xs">
+          <div className="flex gap-4">
+            <span className="text-gray-400">
+              DPS: <span className="text-green-400 font-medium">{playerStats.dps.toFixed(1)}</span>
+            </span>
+            <span className="text-gray-400">
+              HP: <span className="text-red-400 font-medium">{Math.floor(player.currentLife)}/{Math.floor(playerStats.maxLife)}</span>
+            </span>
+          </div>
+          <div className="text-gray-400 flex gap-3">
+            {(() => {
+              const inMelee = monsters.filter(m => isInMeleeRange(m));
+              const approaching = monsters.filter(m => !isInMeleeRange(m));
+              const target = getBestTarget(monsters);
 
-            return (
-              <>
-                {inMelee.length > 0 && (
-                  <span>
-                    ⚔️ <span className="text-red-400">{inMelee.length}</span> fighting
-                  </span>
-                )}
-                {approaching.length > 0 && (
-                  <span>
-                    🚶 <span className="text-yellow-400">{approaching.length}</span> approaching
-                  </span>
-                )}
-                {target && (
-                  <span>
-                    🎯 <span style={{ color: RARITY_COLORS[target.rarity].primary }}>
-                      {target.name}
+              return (
+                <>
+                  {inMelee.length > 0 && (
+                    <span>
+                      ⚔️ <span className="text-red-400">{inMelee.length}</span> fighting
                     </span>
-                  </span>
-                )}
-              </>
-            );
-          })()}
+                  )}
+                  {approaching.length > 0 && (
+                    <span>
+                      🚶 <span className="text-yellow-400">{approaching.length}</span> approaching
+                    </span>
+                  )}
+                  {target && (
+                    <span>
+                      🎯 <span style={{ color: RARITY_COLORS[target.rarity].primary }}>
+                        {target.name}
+                      </span>
+                    </span>
+                  )}
+                </>
+              );
+            })()}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

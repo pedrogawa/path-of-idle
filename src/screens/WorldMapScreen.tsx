@@ -54,8 +54,8 @@ export function WorldMapScreen() {
             <span className="text-2xl">🌊</span>
             <span className="text-lg font-bold text-white">Act 1</span>
           </div>
-          <h2 className="text-3xl font-bold text-[#c9a227] mb-2">The Corrupted Shores</h2>
-          <p className="text-gray-400">A cursed coastline teeming with the drowned dead</p>
+          <h2 className="text-3xl font-bold text-[#c9a227] mb-2">The Shores of Wraeclast</h2>
+          <p className="text-gray-400">From the Twilight Strand to Lioneye&apos;s Watch</p>
         </div>
 
         {/* Map path visualization */}
@@ -195,9 +195,9 @@ export function WorldMapScreen() {
         {/* Future acts teaser */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { name: 'Act 2: The Burning Highlands', icon: '🔥', levels: '37-60' },
-            { name: 'Act 3: The Frozen Wastes', icon: '❄️', levels: '61-80' },
-            { name: 'Act 4: The Void Realm', icon: '🌀', levels: '81-100' },
+            { name: 'Act 2: The Burning Highlands', icon: '🔥', levels: '14-40' },
+            { name: 'Act 3: The Frozen Wastes', icon: '❄️', levels: '41-70' },
+            { name: 'Act 4: The Void Realm', icon: '🌀', levels: '71-100' },
           ].map((act, i) => (
             <div
               key={i}

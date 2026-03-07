@@ -166,6 +166,7 @@ export function getDefaultPlayerStats(): PlayerStats {
     increasedEnergyShield: 0,
     armor: 0,
     increasedArmor: 0,
+    increasedMovementSpeed: 0,
     evasion: 0,
     increasedEvasion: 0,
     blockChance: 0,

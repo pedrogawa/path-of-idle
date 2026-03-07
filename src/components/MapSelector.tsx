@@ -14,7 +14,7 @@ export function MapSelector() {
     <div className="bg-[#12121a] rounded-lg p-4 border border-[#2a2a3a]">
       <h2 className="text-lg font-bold text-[#c9a227] mb-3 flex items-center gap-2">
         <span className="text-2xl">🗺️</span>
-        World 1: The Corrupted Shores
+        World 1: The Shores of Wraeclast
       </h2>
 
       <div className="grid gap-2">

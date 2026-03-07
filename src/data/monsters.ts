@@ -1,4 +1,17 @@
 import type { MonsterDefinition, BossDefinition, BossSkill } from '../types';
+import { drownedZombieLevelStats } from './monsterLevelData/drownedZombie';
+import { fireFuryLevelStats } from './monsterLevelData/fireFury';
+import { hillockLevelStats } from './monsterLevelData/hillock';
+import { hungryCorpseLevelStats } from './monsterLevelData/hungryCorpse';
+import { cannibalLevelStats } from './monsterLevelData/cannibal';
+import { cannibalFireEaterLevelStats } from './monsterLevelData/cannibalFireEater';
+import { coconutCrabLevelStats } from './monsterLevelData/coconutCrab';
+import { gravelEaterLevelStats } from './monsterLevelData/gravelEater';
+import { shoreCrabLevelStats } from './monsterLevelData/shoreCrab';
+import { spiderCrabLevelStats } from './monsterLevelData/spiderCrab';
+import { savageCrabLevelStats } from './monsterLevelData/savageCrab';
+import { witheredHuskLevelStats } from './monsterLevelData/witheredHusk';
+import { sandSpitterLevelStats } from './monsterLevelData/sandSpitter';
 
 // ============================================
 // BOSS SKILLS
@@ -23,6 +36,48 @@ const drownedCaptainSkills: BossSkill[] = [
     cooldown: 3,
     skillType: 'cleave',
     color: '#718096',
+  },
+];
+
+const hillockSkills: BossSkill[] = [
+  {
+    id: 'hillockHeavySwing',
+    name: 'Heavy Swing',
+    description: 'A crushing melee strike with his weapon',
+    damageMultiplier: 2.2,
+    cooldown: 4,
+    skillType: 'slam',
+    color: '#7b6d5a',
+  },
+  {
+    id: 'hillockRush',
+    name: 'Rushing Blow',
+    description: 'Charges forward and slams the target',
+    damageMultiplier: 2.8,
+    cooldown: 7,
+    skillType: 'slam',
+    color: '#9b2c2c',
+  },
+];
+
+const fireFurySkills: BossSkill[] = [
+  {
+    id: 'fireballBurst',
+    name: 'Fireball Burst',
+    description: 'Launches searing projectiles',
+    damageMultiplier: 2.2,
+    cooldown: 4,
+    skillType: 'projectile',
+    color: '#dd6b20',
+  },
+  {
+    id: 'scorchedEarth',
+    name: 'Scorched Earth',
+    description: 'Ignites the ground in a fiery blast',
+    damageMultiplier: 2.8,
+    cooldown: 7,
+    skillType: 'aoe',
+    color: '#c53030',
   },
 ];
 
@@ -306,165 +361,126 @@ const leviathanSkills: BossSkill[] = [
 // Rare (4x HP): 32-60 seconds (mini boss feel)
 
 export const monsters: MonsterDefinition[] = [
-  // Beach monsters (Maps 1-2) - ~20-25 HP base for 8-10 sec kills
-  // XP scaled for new table: ~20-30 kills to level up early game
   {
     id: 'drownedZombie',
     name: 'Drowned Zombie',
-    baseLife: 22,
-    baseDamage: 1,
-    attackSpeed: 0.6,
-    damageType: 'physical',
-    experienceReward: 25,
-    lootBonus: 1,
-  },
-  {
-    id: 'seaCrab',
-    name: 'Sea Crab',
-    baseLife: 28,
-    baseDamage: 2,
-    attackSpeed: 0.5,
-    damageType: 'physical',
-    experienceReward: 30,
-    lootBonus: 1,
-  },
-  {
-    id: 'beachLurker',
-    name: 'Beach Lurker',
-    baseLife: 18,
-    baseDamage: 2,
-    attackSpeed: 0.8,
-    damageType: 'physical',
-    experienceReward: 28,
-    lootBonus: 1.1,
-  },
-  
-  // Cave monsters (Maps 3-4) - ~30-40 HP base
-  {
-    id: 'caveSpider',
-    name: 'Cave Spider',
-    baseLife: 32,
-    baseDamage: 3,
-    attackSpeed: 0.9,
-    damageType: 'physical',
-    experienceReward: 45,
-    lootBonus: 1.1,
-  },
-  {
-    id: 'stalactiteBat',
-    name: 'Stalactite Bat',
     baseLife: 24,
     baseDamage: 4,
-    attackSpeed: 1.1,
+    attackSpeed: 0.4167,
     damageType: 'physical',
-    experienceReward: 38,
+    experienceReward: 18,
     lootBonus: 1,
+    levelStats: drownedZombieLevelStats,
   },
   {
-    id: 'deepCrawler',
-    name: 'Deep Crawler',
-    baseLife: 45,
-    baseDamage: 3,
-    attackSpeed: 0.5,
-    damageType: 'cold',
-    experienceReward: 52,
-    lootBonus: 1.2,
-  },
-  
-  // Shipwreck monsters (Maps 5-6) - ~40-60 HP base
-  {
-    id: 'pirateGhost',
-    name: 'Pirate Ghost',
-    baseLife: 48,
-    baseDamage: 5,
-    attackSpeed: 0.8,
-    damageType: 'cold',
-    experienceReward: 70,
-    lootBonus: 1.2,
-  },
-  {
-    id: 'barnacleGolem',
-    name: 'Barnacle Golem',
-    baseLife: 75,
+    id: 'hungryCorpse',
+    name: 'Hungry Corpse',
+    baseLife: 16,
     baseDamage: 4,
-    attackSpeed: 0.4,
+    attackSpeed: 0.4167,
     damageType: 'physical',
-    experienceReward: 85,
-    lootBonus: 1.3,
+    experienceReward: 18,
+    lootBonus: 1,
+    levelStats: hungryCorpseLevelStats,
   },
   {
-    id: 'rottenDeckhand',
-    name: 'Rotten Deckhand',
-    baseLife: 42,
-    baseDamage: 5,
-    attackSpeed: 0.7,
-    damageType: 'physical',
-    experienceReward: 62,
-    lootBonus: 1.15,
-  },
-  
-  // Temple monsters (Maps 7-8) - ~60-90 HP base
-  {
-    id: 'templeGuardian',
-    name: 'Temple Guardian',
-    baseLife: 90,
-    baseDamage: 7,
-    attackSpeed: 0.5,
-    damageType: 'lightning',
-    experienceReward: 120,
-    lootBonus: 1.4,
-  },
-  {
-    id: 'sirenServant',
-    name: 'Siren Servant',
-    baseLife: 55,
-    baseDamage: 8,
-    attackSpeed: 0.9,
-    damageType: 'cold',
-    experienceReward: 100,
-    lootBonus: 1.3,
-  },
-  {
-    id: 'coralElemental',
-    name: 'Coral Elemental',
-    baseLife: 70,
+    id: 'sandSpitter',
+    name: 'Sand Spitter',
+    baseLife: 15,
     baseDamage: 6,
-    attackSpeed: 0.6,
+    attackSpeed: 1.0101,
     damageType: 'physical',
-    experienceReward: 95,
-    lootBonus: 1.25,
-  },
-  
-  // Abyss monsters (Maps 9-10) - ~80-120 HP base
-  {
-    id: 'abyssalHorror',
-    name: 'Abyssal Horror',
-    baseLife: 110,
-    baseDamage: 10,
-    attackSpeed: 0.6,
-    damageType: 'cold',
-    experienceReward: 175,
-    lootBonus: 1.5,
+    experienceReward: 13,
+    lootBonus: 1,
+    levelStats: sandSpitterLevelStats,
   },
   {
-    id: 'voidTentacle',
-    name: 'Void Tentacle',
-    baseLife: 65,
-    baseDamage: 12,
-    attackSpeed: 1.0,
-    damageType: 'lightning',
-    experienceReward: 140,
-    lootBonus: 1.4,
+    id: 'cannibal',
+    name: 'Cannibal',
+    baseLife: 22,
+    baseDamage: 5,
+    attackSpeed: 0.5013,
+    damageType: 'physical',
+    experienceReward: 20,
+    lootBonus: 1,
+    levelStats: cannibalLevelStats,
   },
   {
-    id: 'deepSeaLeviathan',
-    name: 'Deep Sea Leviathan',
-    baseLife: 140,
+    id: 'cannibalFireEater',
+    name: 'Cannibal Fire-Eater',
+    baseLife: 22,
+    baseDamage: 5,
+    attackSpeed: 0.5013,
+    damageType: 'fire',
+    experienceReward: 20,
+    lootBonus: 1,
+    levelStats: cannibalFireEaterLevelStats,
+  },
+  {
+    id: 'coconutCrab',
+    name: 'Coconut Crab',
+    baseLife: 22,
+    baseDamage: 5,
+    attackSpeed: 0.6667,
+    damageType: 'physical',
+    experienceReward: 20,
+    lootBonus: 1,
+    levelStats: coconutCrabLevelStats,
+  },
+  {
+    id: 'gravelEater',
+    name: 'Gravel Eater',
+    baseLife: 15,
+    baseDamage: 6,
+    attackSpeed: 1.0101,
+    damageType: 'physical',
+    experienceReward: 13,
+    lootBonus: 1,
+    levelStats: gravelEaterLevelStats,
+  },
+  {
+    id: 'savageCrab',
+    name: 'Savage Crab',
+    baseLife: 18,
     baseDamage: 8,
-    attackSpeed: 0.4,
+    attackSpeed: 0.995,
     damageType: 'physical',
-    experienceReward: 200,
-    lootBonus: 1.6,
+    experienceReward: 15,
+    lootBonus: 1,
+    levelStats: savageCrabLevelStats,
+  },
+  {
+    id: 'shoreCrab',
+    name: 'Shore Crab',
+    baseLife: 17,
+    baseDamage: 3,
+    attackSpeed: 0.6667,
+    damageType: 'physical',
+    experienceReward: 10,
+    lootBonus: 1,
+    levelStats: shoreCrabLevelStats,
+  },
+  {
+    id: 'spiderCrab',
+    name: 'Spider Crab',
+    baseLife: 18,
+    baseDamage: 4,
+    attackSpeed: 0.6667,
+    damageType: 'physical',
+    experienceReward: 10,
+    lootBonus: 1,
+    levelStats: spiderCrabLevelStats,
+  },
+  {
+    id: 'witheredHusk',
+    name: 'Withered Husk',
+    baseLife: 24,
+    baseDamage: 9,
+    attackSpeed: 0.4167,
+    damageType: 'physical',
+    experienceReward: 18,
+    lootBonus: 1,
+    levelStats: witheredHuskLevelStats,
   },
 ];
 
@@ -477,6 +493,34 @@ export const monsters: MonsterDefinition[] = [
 // Later bosses scale with expected player power
 
 export const bosses: BossDefinition[] = [
+  {
+    id: 'hillock',
+    name: 'Hillock',
+    title: 'Twilight Strand Brute',
+    baseLife: 40,
+    baseDamage: 5,
+    attackSpeed: 0.6061,
+    damageType: 'physical',
+    experienceReward: 30,
+    lootBonus: 3,
+    guaranteedDrops: ['rustySword', 'leatherCap'],
+    skills: hillockSkills,
+    levelStats: hillockLevelStats,
+  },
+  {
+    id: 'fireFury',
+    name: 'Fire Fury',
+    title: 'Inferno of the Coast',
+    baseLife: 40,
+    baseDamage: 6,
+    attackSpeed: 0.5013,
+    damageType: 'fire',
+    experienceReward: 36,
+    lootBonus: 3,
+    guaranteedDrops: ['rustySword', 'leatherCap'],
+    skills: fireFurySkills,
+    levelStats: fireFuryLevelStats,
+  },
   {
     id: 'drownedCaptain',
     name: 'The Drowned Captain',
@@ -539,7 +583,7 @@ export const bosses: BossDefinition[] = [
     damageType: 'lightning',
     experienceReward: 1400,
     lootBonus: 5,
-    guaranteedDrops: ['steelHelmet', 'chainBoots'],
+    guaranteedDrops: ['steelHelmet', 'steelGreaves'],
     skills: templeGuardianSkills,
   },
   {
@@ -591,7 +635,7 @@ export const bosses: BossDefinition[] = [
     damageType: 'cold',
     experienceReward: 5000,
     lootBonus: 8,
-    guaranteedDrops: ['plateBoots', 'heavyBelt'],
+    guaranteedDrops: ['platedGreaves', 'heavyBelt'],
     skills: abyssalLordSkills,
   },
   {

@@ -2228,43 +2228,438 @@ export const itemBases: ItemBase[] = [
   // BOOTS
   // ============================================
   {
-    id: 'wornSandals',
-    name: 'Worn Sandals',
+    id: 'ironGreaves',
+    name: 'Iron Greaves',
     slot: 'boots',
     requiredLevel: 1,
+    requiredStrength: 8,
     dropLevel: 1,
+    baseTags: ['bootsStrength'],
     baseStats: {
-      armor: 3,
+      armor: 9,
+    },
+    baseStatRanges: {
+      armor: { min: 7, max: 10 },
     },
   },
   {
-    id: 'leatherBoots',
-    name: 'Leather Boots',
+    id: 'kaomsGreaves',
+    name: "Kaom's Greaves",
     slot: 'boots',
-    requiredLevel: 7,
-    dropLevel: 7,
+    requiredLevel: 1,
+    requiredStrength: 9,
+    dropLevel: 1,
+    baseTags: ['bootsStrength'],
     baseStats: {
-      armor: 12,
+      armor: 9,
+    },
+    baseStatRanges: {
+      armor: { min: 9, max: 9 },
     },
   },
   {
-    id: 'chainBoots',
-    name: 'Chain Boots',
+    id: 'steelGreaves',
+    name: 'Steel Greaves',
     slot: 'boots',
-    requiredLevel: 16,
-    dropLevel: 16,
+    requiredLevel: 9,
+    requiredStrength: 21,
+    dropLevel: 9,
+    baseTags: ['bootsStrength'],
     baseStats: {
-      armor: 28,
+      armor: 44,
+    },
+    baseStatRanges: {
+      armor: { min: 38, max: 50 },
     },
   },
   {
-    id: 'plateBoots',
-    name: 'Plate Boots',
+    id: 'basemetalTreads',
+    name: 'Basemetal Treads',
     slot: 'boots',
-    requiredLevel: 26,
-    dropLevel: 26,
+    requiredLevel: 20,
+    requiredStrength: 39,
+    dropLevel: 20,
+    baseTags: ['bootsStrength'],
     baseStats: {
-      armor: 48,
+      armor: 87,
+    },
+    baseStatRanges: {
+      armor: { min: 81, max: 93 },
+    },
+  },
+  {
+    id: 'platedGreaves',
+    name: 'Plated Greaves',
+    slot: 'boots',
+    requiredLevel: 23,
+    requiredStrength: 44,
+    dropLevel: 23,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 104,
+    },
+    baseStatRanges: {
+      armor: { min: 92, max: 115 },
+    },
+  },
+  {
+    id: 'reinforcedGreaves',
+    name: 'Reinforced Greaves',
+    slot: 'boots',
+    requiredLevel: 33,
+    requiredStrength: 61,
+    dropLevel: 33,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 137,
+    },
+    baseStatRanges: {
+      armor: { min: 130, max: 144 },
+    },
+  },
+  {
+    id: 'antiqueGreaves',
+    name: 'Antique Greaves',
+    slot: 'boots',
+    requiredLevel: 37,
+    requiredStrength: 67,
+    dropLevel: 37,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 159,
+    },
+    baseStatRanges: {
+      armor: { min: 146, max: 172 },
+    },
+  },
+  {
+    id: 'ancientGreaves',
+    name: 'Ancient Greaves',
+    slot: 'boots',
+    requiredLevel: 46,
+    requiredStrength: 82,
+    dropLevel: 46,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 195,
+    },
+    baseStatRanges: {
+      armor: { min: 181, max: 208 },
+    },
+  },
+  {
+    id: 'darksteelTreads',
+    name: 'Darksteel Treads',
+    slot: 'boots',
+    requiredLevel: 50,
+    requiredStrength: 89,
+    dropLevel: 50,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 211,
+    },
+    baseStatRanges: {
+      armor: { min: 196, max: 226 },
+    },
+  },
+  {
+    id: 'goliathGreaves',
+    name: 'Goliath Greaves',
+    slot: 'boots',
+    requiredLevel: 54,
+    requiredStrength: 95,
+    dropLevel: 54,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 231,
+    },
+    baseStatRanges: {
+      armor: { min: 212, max: 250 },
+    },
+  },
+  {
+    id: 'vaalGreaves',
+    name: 'Vaal Greaves',
+    slot: 'boots',
+    requiredLevel: 62,
+    requiredStrength: 117,
+    dropLevel: 62,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 284,
+    },
+    baseStatRanges: {
+      armor: { min: 264, max: 303 },
+    },
+  },
+  {
+    id: 'titanGreaves',
+    name: 'Titan Greaves',
+    slot: 'boots',
+    requiredLevel: 68,
+    requiredStrength: 120,
+    dropLevel: 68,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 311,
+    },
+    baseStatRanges: {
+      armor: { min: 289, max: 333 },
+    },
+  },
+  {
+    id: 'precursorGreaves',
+    name: 'Precursor Greaves',
+    slot: 'boots',
+    requiredLevel: 78,
+    requiredStrength: 153,
+    dropLevel: 78,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 396,
+    },
+    baseStatRanges: {
+      armor: { min: 368, max: 423 },
+    },
+  },
+  {
+    id: 'brimstoneTreads',
+    name: 'Brimstone Treads',
+    slot: 'boots',
+    requiredLevel: 80,
+    requiredStrength: 124,
+    dropLevel: 80,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 304,
+    },
+    baseStatRanges: {
+      armor: { min: 283, max: 325 },
+    },
+  },
+  {
+    id: 'leviathanGreaves',
+    name: 'Leviathan Greaves',
+    slot: 'boots',
+    requiredLevel: 84,
+    requiredStrength: 177,
+    dropLevel: 84,
+    baseTags: ['bootsStrength'],
+    baseStats: {
+      armor: 463,
+    },
+    baseStatRanges: {
+      armor: { min: 430, max: 495 },
+    },
+  },
+  {
+    id: 'rawhideBoots',
+    name: 'Rawhide Boots',
+    slot: 'boots',
+    requiredLevel: 3,
+    requiredDexterity: 11,
+    dropLevel: 3,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 18,
+    },
+    baseStatRanges: {
+      evasion: { min: 15, max: 21 },
+    },
+  },
+  {
+    id: 'goathideBoots',
+    name: 'Goathide Boots',
+    slot: 'boots',
+    requiredLevel: 12,
+    requiredDexterity: 26,
+    dropLevel: 12,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 57,
+    },
+    baseStatRanges: {
+      evasion: { min: 50, max: 64 },
+    },
+  },
+  {
+    id: 'cloudwhisperBoots',
+    name: 'Cloudwhisper Boots',
+    slot: 'boots',
+    requiredLevel: 20,
+    requiredDexterity: 39,
+    dropLevel: 20,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 87,
+    },
+    baseStatRanges: {
+      evasion: { min: 81, max: 93 },
+    },
+  },
+  {
+    id: 'deerskinBoots',
+    name: 'Deerskin Boots',
+    slot: 'boots',
+    requiredLevel: 22,
+    requiredDexterity: 42,
+    dropLevel: 22,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 99,
+    },
+    baseStatRanges: {
+      evasion: { min: 88, max: 110 },
+    },
+  },
+  {
+    id: 'nubuckBoots',
+    name: 'Nubuck Boots',
+    slot: 'boots',
+    requiredLevel: 34,
+    requiredDexterity: 62,
+    dropLevel: 34,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 143,
+    },
+    baseStatRanges: {
+      evasion: { min: 135, max: 151 },
+    },
+  },
+  {
+    id: 'eelskinBoots',
+    name: 'Eelskin Boots',
+    slot: 'boots',
+    requiredLevel: 39,
+    requiredDexterity: 70,
+    dropLevel: 39,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 166,
+    },
+    baseStatRanges: {
+      evasion: { min: 154, max: 177 },
+    },
+  },
+  {
+    id: 'sharkskinBoots',
+    name: 'Sharkskin Boots',
+    slot: 'boots',
+    requiredLevel: 44,
+    requiredDexterity: 79,
+    dropLevel: 44,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 190,
+    },
+    baseStatRanges: {
+      evasion: { min: 174, max: 205 },
+    },
+  },
+  {
+    id: 'windbreakBoots',
+    name: 'Windbreak Boots',
+    slot: 'boots',
+    requiredLevel: 50,
+    requiredDexterity: 89,
+    dropLevel: 50,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 211,
+    },
+    baseStatRanges: {
+      evasion: { min: 196, max: 226 },
+    },
+  },
+  {
+    id: 'shagreenBoots',
+    name: 'Shagreen Boots',
+    slot: 'boots',
+    requiredLevel: 55,
+    requiredDexterity: 97,
+    dropLevel: 55,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 238,
+    },
+    baseStatRanges: {
+      evasion: { min: 216, max: 259 },
+    },
+  },
+  {
+    id: 'stealthBoots',
+    name: 'Stealth Boots',
+    slot: 'boots',
+    requiredLevel: 62,
+    requiredDexterity: 117,
+    dropLevel: 62,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 284,
+    },
+    baseStatRanges: {
+      evasion: { min: 264, max: 303 },
+    },
+  },
+  {
+    id: 'slinkBoots',
+    name: 'Slink Boots',
+    slot: 'boots',
+    requiredLevel: 69,
+    requiredDexterity: 120,
+    dropLevel: 69,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 317,
+    },
+    baseStatRanges: {
+      evasion: { min: 295, max: 339 },
+    },
+  },
+  {
+    id: 'harpyskinBoots',
+    name: 'Harpyskin Boots',
+    slot: 'boots',
+    requiredLevel: 78,
+    requiredDexterity: 153,
+    dropLevel: 78,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 396,
+    },
+    baseStatRanges: {
+      evasion: { min: 368, max: 423 },
+    },
+  },
+  {
+    id: 'stormriderBoots',
+    name: 'Stormrider Boots',
+    slot: 'boots',
+    requiredLevel: 80,
+    requiredDexterity: 124,
+    dropLevel: 80,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 304,
+    },
+    baseStatRanges: {
+      evasion: { min: 283, max: 325 },
+    },
+  },
+  {
+    id: 'velourBoots',
+    name: 'Velour Boots',
+    slot: 'boots',
+    requiredLevel: 84,
+    requiredDexterity: 177,
+    dropLevel: 84,
+    baseTags: ['bootsDexterity'],
+    baseStats: {
+      evasion: 463,
+    },
+    baseStatRanges: {
+      evasion: { min: 430, max: 495 },
     },
   },
   

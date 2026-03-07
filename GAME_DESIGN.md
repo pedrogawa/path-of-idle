@@ -15,20 +15,27 @@ The magic of idle games is **"numbers go up"** + **meaningful choices**:
 
 ---
 
-## 📍 World 1: "The Corrupted Shores" (10 Maps)
+## 📍 World 1: "The Shores of Wraeclast" (17 Areas)
 
-| Map | Name | Monster Level | Unlock Condition | Boss |
-|-----|------|---------------|------------------|------|
-| 1 | Twilight Beach | 1 | Start | Drowned Captain |
-| 2 | Flooded Caves | 3 | Beat Map 1 Boss | Cave Lurker |
-| 3 | Shipwreck Graveyard | 5 | Beat Map 2 Boss | Ghost Admiral |
-| 4 | Coral Depths | 8 | Beat Map 3 Boss | Abyssal Crab |
-| 5 | Sunken Temple | 11 | Beat Map 4 Boss | Temple Guardian |
-| 6 | Tidal Ruins | 15 | Beat Map 5 Boss | Ruined Sentinel |
-| 7 | Siren's Lair | 19 | Beat Map 6 Boss | Siren Queen |
-| 8 | Kraken's Rest | 24 | Beat Map 7 Boss | Young Kraken |
-| 9 | Abyssal Throne | 30 | Beat Map 8 Boss | Abyssal Lord |
-| 10 | The Maelstrom | 36 | Beat Map 9 Boss | **Leviathan** (World Boss) |
+| Area | Name | Monster Level | Unlock Condition | Boss (Placeholder) |
+|------|------|---------------|------------------|--------------------|
+| 1 | The Twilight Strand | 1 | Start | Hillock |
+| 2 | The Coast | 2 | Beat Area 1 Boss | Hillock |
+| 3 | The Tidal Island | 3 | Beat Area 2 Boss | Hillock |
+| 4 | The Mud Flats | 4 | Beat Area 3 Boss | Hillock |
+| 5 | The Fetid Pool | 5 | Beat Area 4 Boss | Hillock |
+| 6 | The Submerged Passage | 5 | Beat Area 5 Boss | Hillock |
+| 7 | The Flooded Depths | 6 | Beat Area 6 Boss | Hillock |
+| 8 | The Ledge | 6 | Beat Area 7 Boss | Hillock |
+| 9 | The Climb | 7 | Beat Area 8 Boss | Hillock |
+| 10 | The Lower Prison | 8 | Beat Area 9 Boss | Hillock |
+| 11 | The Upper Prison | 9 | Beat Area 10 Boss | Hillock |
+| 12 | Prisoner's Gate | 10 | Beat Area 11 Boss | Hillock |
+| 13 | The Ship Graveyard | 11 | Beat Area 12 Boss | Hillock |
+| 14 | The Cavern of Wrath | 12 | Beat Area 13 Boss | Hillock |
+| 15 | The Ship Graveyard Cave | 12 | Beat Area 14 Boss | Hillock |
+| 16 | The Cavern of Anger | 13 | Beat Area 15 Boss | Hillock |
+| 17 | Lioneye's Watch | 13 | Beat Area 16 Boss | Hillock |
 
 ### Map Mechanics
 - Each map has a **kill requirement** (e.g., 20-50 monsters) before boss can be challenged

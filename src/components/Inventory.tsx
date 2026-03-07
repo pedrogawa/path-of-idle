@@ -370,13 +370,15 @@ function InventoryItem({
   equippedItem,
   onEquip,
   ringEquippedItems,
-  onSell
+  onSell,
+  compactSquare = false,
 }: {
   item: Item;
   equippedItem: Item | null;
   onEquip: (slot?: EquipmentSlot) => void;
   ringEquippedItems?: { ring1: Item | null; ring2: Item | null };
   onSell: () => void;
+  compactSquare?: boolean;
 }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -412,48 +414,62 @@ function InventoryItem({
         onClick={() => onEquip(isRing ? selectedRingSlot : undefined)}
         onContextMenu={handleContextMenu}
         className={`
-          w-full p-2 rounded-lg border-2 text-left
+          ${compactSquare ? 'w-full aspect-square p-1.5 text-center' : 'w-full p-2 text-left'}
+          rounded-lg border-2
           transition-all duration-150 hover:brightness-125 hover:scale-[1.02]
           ${style.border} ${style.bg} ${style.glow}
         `}
       >
-        {/* Item name */}
-        <div className={`font-medium text-sm truncate ${style.text}`}>
-          {item.name}
-        </div>
-
-        {/* Item info row */}
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-[10px] text-gray-500">
-            {item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1)}
-          </span>
-          <span className="text-[10px] text-gray-600">
-            iLvl {item.itemLevel}
-          </span>
-        </div>
-
-        {/* Quick stat preview */}
-        <div className="mt-1 flex flex-wrap gap-1">
-          {Object.entries(item.stats).slice(0, 2).map(([key, value]) => {
-            if (!value) return null;
-            return (
-              <span key={key} className="text-[9px] text-blue-400/80 bg-blue-900/30 px-1 rounded">
-                +{typeof value === 'number' ? formatStatValue(value) : value}{isPercentageStat(key) ? '%' : ''}
-              </span>
-            );
-          })}
-          {Object.keys(item.stats).length > 2 && (
-            <span className="text-[9px] text-gray-500">
-              +{Object.keys(item.stats).length - 2} more
+        {compactSquare ? (
+          <div className="relative w-full h-full flex flex-col items-center justify-center">
+            <span className="text-xl leading-none">{SLOT_ICONS[item.slot]}</span>
+            <span className={`text-[9px] mt-1 px-1 rounded ${style.text}`}>
+              {item.rarity[0].toUpperCase()}
             </span>
-          )}
-        </div>
+            <span className="absolute top-0.5 right-0.5 text-[9px] text-gray-500">
+              {item.itemLevel}
+            </span>
+          </div>
+        ) : (
+          <>
+            {/* Item name */}
+            <div className={`font-medium text-sm truncate ${style.text}`}>
+              {item.name}
+            </div>
 
+            {/* Item info row */}
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[10px] text-gray-500">
+                {item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1)}
+              </span>
+              <span className="text-[10px] text-gray-600">
+                iLvl {item.itemLevel}
+              </span>
+            </div>
+
+            {/* Quick stat preview */}
+            <div className="mt-1 flex flex-wrap gap-1">
+              {Object.entries(item.stats).slice(0, 2).map(([key, value]) => {
+                if (!value) return null;
+                return (
+                  <span key={key} className="text-[9px] text-blue-400/80 bg-blue-900/30 px-1 rounded">
+                    +{typeof value === 'number' ? formatStatValue(value) : value}{isPercentageStat(key) ? '%' : ''}
+                  </span>
+                );
+              })}
+              {Object.keys(item.stats).length > 2 && (
+                <span className="text-[9px] text-gray-500">
+                  +{Object.keys(item.stats).length - 2} more
+                </span>
+              )}
+            </div>
+          </>
+        )}
       </button>
 
       {/* Ring quick-slot selector */}
       {isRing && showTooltip && (
-        <div className="absolute top-1 right-1 flex gap-1 z-10">
+        <div className={`absolute ${compactSquare ? 'top-0.5 left-0.5' : 'top-1 right-1'} flex gap-1 z-10`}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -515,6 +531,8 @@ export function Inventory({ showEquipment = false, compact = false }: InventoryP
   const getEquippedForSlot = (slot: EquipmentSlot): Item | null => {
     return player.equipment[slot];
   };
+  const compactColumns = 6;
+  const compactSlots = Array.from({ length: player.inventorySize }, (_, index) => player.inventory[index] ?? null);
 
   return (
     <div className="bg-[#12121a] rounded-lg p-4 border border-[#2a2a3a]">
@@ -541,12 +559,55 @@ export function Inventory({ showEquipment = false, compact = false }: InventoryP
       )}
 
       {/* Inventory Items */}
-      {player.inventory.length === 0 ? (
-        <div className={`text-center text-gray-500 text-sm bg-[#0a0a0f] rounded-lg border border-dashed border-gray-700 ${compact ? 'py-4' : 'py-12'}`}>
+      {compact ? (
+        <div
+          className="grid gap-2"
+          style={{ gridTemplateColumns: `repeat(${compactColumns}, minmax(0, 1fr))` }}
+        >
+          {compactSlots.map((item, index) => {
+            if (!item) {
+              return (
+                <div
+                  key={`empty_${index}`}
+                  className="aspect-square rounded-lg border border-dashed border-[#2f3448] bg-[#0a0a0f]/70"
+                />
+              );
+            }
+
+            const targetSlot = item.slot;
+            const equippedItem = getEquippedForSlot(targetSlot);
+            const isRing = item.slot === 'ring1' || item.slot === 'ring2';
+
+            return (
+              <InventoryItem
+                key={item.id}
+                item={item}
+                equippedItem={equippedItem}
+                compactSquare
+                ringEquippedItems={isRing
+                  ? {
+                    ring1: player.equipment.ring1,
+                    ring2: player.equipment.ring2,
+                  }
+                  : undefined}
+                onEquip={(slot) => {
+                  if (slot) {
+                    equipItem(item.id, slot);
+                    return;
+                  }
+                  equipItem(item.id);
+                }}
+                onSell={() => sellItem(item.id)}
+              />
+            );
+          })}
+        </div>
+      ) : player.inventory.length === 0 ? (
+        <div className="text-center text-gray-500 text-sm bg-[#0a0a0f] rounded-lg border border-dashed border-gray-700 py-12">
           No items yet. Kill some monsters!
         </div>
       ) : (
-        <div className={`grid gap-2 overflow-y-auto pr-1 ${compact ? 'grid-cols-1 max-h-48' : 'grid-cols-2 max-h-[500px]'}`}>
+        <div className="grid gap-2 overflow-y-auto pr-1 grid-cols-2 max-h-[500px]">
           {player.inventory.map(item => {
             const targetSlot = item.slot;
             const equippedItem = getEquippedForSlot(targetSlot);

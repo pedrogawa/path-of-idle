@@ -22,7 +22,7 @@ import {
 import { canGemLevelUp, getGemNextLevelTotalExperience, getGemRequiredCharacterLevelForLevel } from '../lib/gems';
 import { getSkillRuntimeStats } from '../lib/skills';
 import { generateLoot } from '../lib/loot';
-import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, isInMeleeRange } from '../lib/monsters';
+import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, isInMeleeRange, stepMonsterTowardsPlayer } from '../lib/monsters';
 import { mapById, maps, bossById, skillById, starterSkillIds, getBuyableSkills, getSkillPurchaseCost, supportGemById } from '../data';
 
 let logIdCounter = 0;
@@ -157,10 +157,10 @@ function createInitialGameState(): GameState {
     maxMonsters: MAX_MONSTERS,
     playerAttackCooldown: 0, // Ready to attack immediately
     
-    unlockedMapIds: ['twilightBeach'],
+    unlockedMapIds: ['twilightStrand'],
     mapProgress: {
-      twilightBeach: {
-        mapId: 'twilightBeach',
+      twilightStrand: {
+        mapId: 'twilightStrand',
         killCount: 0,
         bossDefeated: false,
         timesCleared: 0,
@@ -791,16 +791,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     
     // ============================================
-    // MONSTER MOVEMENT - Monsters walk towards player
+    // MONSTER MOVEMENT - 2D movement with simple obstacle-aware pathing
     // ============================================
     
-    monsters = monsters.map(m => {
-      if (m.distance > 0) {
-        const newDistance = Math.max(0, m.distance - m.moveSpeed * deltaTime);
-        return { ...m, distance: newDistance };
-      }
-      return m;
-    });
+    monsters = monsters.map(monster => stepMonsterTowardsPlayer(monster, state.currentMapId!, deltaTime));
     
     // ============================================
     // COMBAT - Discrete attack system (integer damage)
@@ -968,7 +962,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
     
     monsters = monsters.map(m => {
-      let updatedMonster = { ...m };
+      const updatedMonster = { ...m };
       const inRange = isInMeleeRange(updatedMonster);
       
       const damageToThisMonster = skillDamageMap.get(updatedMonster.id) || 0;

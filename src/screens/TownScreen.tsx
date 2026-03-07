@@ -57,6 +57,14 @@ const VENDORS = [
     available: true,
   },
   {
+    id: 'monsterImporter',
+    name: 'Monster Lab',
+    icon: '🧪',
+    description: 'Import PoEDB monster stats',
+    action: 'monsterImporter' as const,
+    available: true,
+  },
+  {
     id: 'stash',
     name: 'Stash',
     icon: '📦',
@@ -175,6 +183,12 @@ export function TownScreen() {
             className="px-6 py-3 bg-[#1a1a24] border border-[#2a2a3a] text-white font-medium rounded-lg hover:border-[#c9a227]/50 transition-all"
           >
             📚 Skill Trainer
+          </button>
+          <button
+            onClick={() => navigateTo('monsterImporter')}
+            className="px-6 py-3 bg-[#1a1a24] border border-[#2a2a3a] text-white font-medium rounded-lg hover:border-[#c9a227]/50 transition-all"
+          >
+            🧪 Monster Lab
           </button>
         </div>
       </div>

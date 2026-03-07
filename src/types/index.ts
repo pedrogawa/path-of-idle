@@ -40,7 +40,14 @@ export type ItemBaseTag =
   | 'bodyArmorStrengthDexterity'
   | 'bodyArmorStrengthIntelligence'
   | 'bodyArmorDexterityIntelligence'
-  | 'bodyArmorStrengthDexterityIntelligence';
+  | 'bodyArmorStrengthDexterityIntelligence'
+  | 'bootsStrength'
+  | 'bootsDexterity'
+  | 'bootsIntelligence'
+  | 'bootsStrengthDexterity'
+  | 'bootsStrengthIntelligence'
+  | 'bootsDexterityIntelligence'
+  | 'bootsStrengthDexterityIntelligence';
 
 // ============================================
 // AFFIXES
@@ -155,6 +162,7 @@ export interface PlayerStats {
   increasedEnergyShield: number;
   armor: number;
   increasedArmor: number;
+  increasedMovementSpeed: number;
   evasion: number;       // Chance to dodge attacks
   increasedEvasion: number;
   blockChance: number;   // Chance to block (shields)
@@ -227,6 +235,41 @@ export interface MonsterDefinition {
   damageType: DamageType;
   experienceReward: number;
   lootBonus: number; // Multiplier for drop rates
+  levelStats?: Record<number, MonsterLevelStats>;
+}
+
+export interface MonsterLevelStats {
+  areaLevel: number;
+  level: number;
+  life?: number;
+  armor?: number;
+  evasion?: number;
+  damage?: number;
+  spellDamage?: number;
+  accuracy?: number;
+  attackTime?: number;
+  attackSpeed?: number;
+  experience?: number;
+  minionLife?: number;
+  minionDamage?: number;
+  ailmentThreshold?: number;
+  physConvertElePct?: number;
+  chill?: number;
+  shock?: number;
+  brittle?: number;
+  scorch?: number;
+  sap?: number;
+  canChill?: boolean;
+  canShock?: boolean;
+  canBrittle?: boolean;
+  canScorch?: boolean;
+  canSap?: boolean;
+  resistances?: {
+    fire?: number;
+    cold?: number;
+    lightning?: number;
+    chaos?: number;
+  };
 }
 
 export interface Monster {
@@ -247,8 +290,10 @@ export interface Monster {
   
   // Position in arena (for multi-monster support)
   positionIndex: number;
+  arenaX: number; // Arena position in percent-like units (0-100)
+  arenaY: number; // Arena position in percent-like units (0-100)
   
-  // Distance from player (0 = melee range, starts at 100)
+  // Distance from player in arena units
   distance: number;
   moveSpeed: number; // Units per second
   
@@ -425,7 +470,7 @@ export interface GameMap {
 // GAME STATE
 // ============================================
 
-export type GameScreen = 'town' | 'worldMap' | 'combat' | 'character' | 'skillTrainer';
+export type GameScreen = 'town' | 'worldMap' | 'combat' | 'character' | 'skillTrainer' | 'monsterImporter';
 
 export type CombatState = 'idle' | 'fighting' | 'looting' | 'dead';
 

@@ -1,6 +1,7 @@
 import { useGameStore } from '../stores/gameStore';
+import type { CombatLogEntry } from '../types';
 
-const TYPE_COLORS = {
+const TYPE_COLORS: Record<CombatLogEntry['type'], string> = {
   playerHit: 'text-gray-400',
   monsterHit: 'text-red-400',
   playerCrit: 'text-yellow-400',
@@ -8,9 +9,12 @@ const TYPE_COLORS = {
   playerDeath: 'text-red-500',
   loot: 'text-blue-400',
   levelUp: 'text-purple-400',
+  evade: 'text-green-300',
+  block: 'text-blue-300',
+  skillUse: 'text-indigo-300',
 };
 
-const TYPE_ICONS = {
+const TYPE_ICONS: Record<CombatLogEntry['type'], string> = {
   playerHit: '⚔️',
   monsterHit: '💥',
   playerCrit: '💫',
@@ -18,6 +22,9 @@ const TYPE_ICONS = {
   playerDeath: '☠️',
   loot: '🎁',
   levelUp: '⬆️',
+  evade: '🌀',
+  block: '🛡️',
+  skillUse: '✨',
 };
 
 export function CombatLog() {
