@@ -143,6 +143,7 @@ export const skills: SkillDefinition[] = [
     name: 'Strike',
     description: 'A basic attack with your weapon.',
     icon: '⚔️',
+    primaryAttribute: 'neutral',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: 1.0,
@@ -158,6 +159,7 @@ export const skills: SkillDefinition[] = [
     name: 'Heavy Strike',
     description: 'A powerful overhead strike that deals massive physical damage.',
     icon: '🔨',
+    primaryAttribute: 'strength',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: HEAVY_STRIKE_DAMAGE_MULTIPLIER_BY_LEVEL[0],
@@ -179,6 +181,7 @@ export const skills: SkillDefinition[] = [
     name: 'Double Strike',
     description: 'Attack twice in rapid succession.',
     icon: '⚡',
+    primaryAttribute: 'dexterity',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: 0.8,
@@ -199,6 +202,7 @@ export const skills: SkillDefinition[] = [
     name: 'Cleave',
     description: 'Swing your weapon in a wide arc, hitting all nearby enemies.',
     icon: '🌀',
+    primaryAttribute: 'strength',
     type: 'attack',
     targeting: 'cone',
     damageMultiplier: 0.9,
@@ -215,6 +219,7 @@ export const skills: SkillDefinition[] = [
     name: 'Ground Slam',
     description: 'Slam the ground, creating a shockwave that damages all enemies.',
     icon: '💥',
+    primaryAttribute: 'strength',
     type: 'attack',
     targeting: 'aoe',
     damageMultiplier: 1.2,
@@ -237,6 +242,7 @@ export const skills: SkillDefinition[] = [
     name: 'Molten Strike',
     description: 'Imbue your weapon with fire, dealing additional fire damage.',
     icon: '🔥',
+    primaryAttribute: 'strength',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: 1.0,
@@ -254,6 +260,7 @@ export const skills: SkillDefinition[] = [
     name: 'Glacial Hammer',
     description: 'A freezing strike that deals cold damage.',
     icon: '❄️',
+    primaryAttribute: 'strength',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: 1.3,
@@ -271,6 +278,7 @@ export const skills: SkillDefinition[] = [
     name: 'Lightning Strike',
     description: 'Channel lightning through your weapon for massive damage.',
     icon: '⚡',
+    primaryAttribute: 'dexterity',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: 1.1,
@@ -292,6 +300,7 @@ export const skills: SkillDefinition[] = [
     name: 'Fireball',
     description: 'Launch a ball of fire at your target.',
     icon: '🔴',
+    primaryAttribute: 'intelligence',
     type: 'spell',
     targeting: 'single',
     damageMultiplier: 0, // Spells don't use weapon damage
@@ -309,6 +318,7 @@ export const skills: SkillDefinition[] = [
     name: 'Ice Shard',
     description: 'Fire a shard of ice at your enemy.',
     icon: '💎',
+    primaryAttribute: 'intelligence',
     type: 'spell',
     targeting: 'single',
     damageMultiplier: 0,
@@ -330,6 +340,7 @@ export const skills: SkillDefinition[] = [
     name: 'Vicious Strike',
     description: 'A savage attack with increased critical chance.',
     icon: '🎯',
+    primaryAttribute: 'dexterity',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: 1.2,
@@ -346,6 +357,7 @@ export const skills: SkillDefinition[] = [
     name: 'Lifetap',
     description: 'Drain life from your enemy with each strike.',
     icon: '💉',
+    primaryAttribute: 'strength',
     type: 'attack',
     targeting: 'single',
     damageMultiplier: 0.9,
@@ -376,6 +388,7 @@ export const supportGems: SupportGemDefinition[] = [
     name: 'Added Fire Support',
     description: 'Gain a percentage of physical damage as extra fire damage.',
     icon: '🔥',
+    primaryAttribute: 'strength',
     color: '#f97316',
     requiredLevel: 8,
     costCurrency: 'alteration',
@@ -392,6 +405,7 @@ export const supportGems: SupportGemDefinition[] = [
     name: 'Brutality Support',
     description: 'Linked skill deals more damage.',
     icon: '💪',
+    primaryAttribute: 'strength',
     color: '#d946ef',
     requiredLevel: 3,
     costCurrency: 'alteration',
@@ -405,6 +419,7 @@ export const supportGems: SupportGemDefinition[] = [
     name: 'Faster Attacks Support',
     description: 'Linked skill recovers faster between casts.',
     icon: '⏩',
+    primaryAttribute: 'dexterity',
     color: '#22d3ee',
     requiredLevel: 4,
     costCurrency: 'alteration',
@@ -418,6 +433,7 @@ export const supportGems: SupportGemDefinition[] = [
     name: 'Multistrike Support',
     description: 'Linked skill repeats one extra hit. The second hit deals less damage.',
     icon: '⚔️',
+    primaryAttribute: 'strength',
     color: '#facc15',
     requiredLevel: 38,
     costCurrency: 'alchemy',
@@ -437,6 +453,7 @@ export const supportGems: SupportGemDefinition[] = [
     name: 'Chance to Bleed Support',
     description: 'Supported attacks have chance to inflict Bleeding and deal more Bleeding damage.',
     icon: '🩸',
+    primaryAttribute: 'dexterity',
     color: '#ef4444',
     requiredLevel: 1,
     costCurrency: 'alteration',
@@ -454,8 +471,8 @@ export const supportGems: SupportGemDefinition[] = [
 
 export const supportGemById = new Map(supportGems.map(gem => [gem.id, gem]));
 
-export const getBuyableSkills = (playerLevel: number): SkillDefinition[] => {
-  return skills.filter(skill => skill.id !== 'defaultAttack' && skill.requiredLevel <= playerLevel);
+export const getBuyableSkills = (_playerLevel?: number): SkillDefinition[] => {
+  return skills.filter(skill => skill.id !== 'defaultAttack');
 };
 
 export function getSkillPurchaseCost(skill: SkillDefinition): number {

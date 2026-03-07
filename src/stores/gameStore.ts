@@ -19,7 +19,7 @@ import {
   checkLevelUp,
   computePlayerStats,
 } from '../lib/combat';
-import { canGemLevelUp, getGemRequiredCharacterLevelForLevel } from '../lib/gems';
+import { canGemLevelUp, getGemNextLevelTotalExperience, getGemRequiredCharacterLevelForLevel } from '../lib/gems';
 import { getSkillRuntimeStats } from '../lib/skills';
 import { generateLoot } from '../lib/loot';
 import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, isInMeleeRange } from '../lib/monsters';
@@ -179,13 +179,15 @@ interface GameStore extends GameState {
   stopFarming: () => void;
   buySkill: (skillId: string) => void;
   removeEquippedSkill: (slotIndex: number) => void;
-  equipInactiveSkill: (skillId: string) => void;
+  equipInactiveSkill: (inactiveIndex: number) => void;
   moveSkillSlot: (fromSlotIndex: number, toSlotIndex: number) => void;
   levelUpSkillGem: (slotIndex: number) => void;
-  levelUpInactiveSkillGem: (skillId: string) => void;
+  levelUpInactiveSkillGem: (inactiveIndex: number) => void;
   levelUpSupportGem: (supportGemInstanceId: string) => void;
   buySupportGem: (supportGemId: string) => void;
   addSkillSocket: (slotIndex: number) => void;
+  socketSupportGemInstance: (slotIndex: number, supportGemInstanceId: string) => void;
+  unsocketSupportGem: (slotIndex: number, socketIndex: number) => void;
   toggleSupportGemSocket: (slotIndex: number, supportGemId: string) => void;
   gameTick: (deltaTime: number) => void;
   startBossFight: () => void;
@@ -276,12 +278,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    if (skillDef.requiredLevel > state.player.level) {
-      get().addLog('playerHit', `Requires level ${skillDef.requiredLevel} to learn ${skillDef.name}.`);
-      return;
-    }
-
-    const buyableSkillIds = new Set(getBuyableSkills(state.player.level).map(skill => skill.id));
+    const buyableSkillIds = new Set(getBuyableSkills().map(skill => skill.id));
     if (!buyableSkillIds.has(skillId)) {
       get().addLog('playerHit', `${skillDef.name} is not available for purchase yet.`);
       return;
@@ -343,10 +340,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().addLog('skillUse', `📦 Removed ${skillDef?.name || 'skill'} from skill bar.`);
   },
 
-  equipInactiveSkill: (skillId: string) => {
+  equipInactiveSkill: (inactiveIndex: number) => {
     const state = get();
-    const inactiveIndex = state.player.inactiveSkills.findIndex(skill => skill.definitionId === skillId);
-    if (inactiveIndex === -1) return;
+    if (inactiveIndex < 0 || inactiveIndex >= state.player.inactiveSkills.length) return;
 
     const emptySlotIndex = state.player.skills.findIndex(skill => skill === null);
     if (emptySlotIndex === -1) {
@@ -427,10 +423,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().addLog('levelUp', `💎 ${skillDef?.name || 'Gem'} reached level ${targetSkill.level + 1}!`);
   },
 
-  levelUpInactiveSkillGem: (skillId: string) => {
+  levelUpInactiveSkillGem: (inactiveIndex: number) => {
     const state = get();
-    const inactiveIndex = state.player.inactiveSkills.findIndex(skill => skill.definitionId === skillId);
-    if (inactiveIndex === -1) return;
+    if (inactiveIndex < 0 || inactiveIndex >= state.player.inactiveSkills.length) return;
 
     const targetSkill = state.player.inactiveSkills[inactiveIndex];
     const skillDef = skillById.get(targetSkill.definitionId);
@@ -511,11 +506,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const supportGem = supportGemById.get(supportGemId);
     if (!supportGem) return;
 
-    if (supportGem.requiredLevel > state.player.level) {
-      get().addLog('playerHit', `Requires level ${supportGem.requiredLevel} to buy ${supportGem.name}.`);
-      return;
-    }
-
     const currencyAmount = state.player.currency[supportGem.costCurrency];
     if (currencyAmount < supportGem.costAmount) {
       get().addLog('playerHit', `Need ${supportGem.costAmount} ${supportGem.costCurrency} to buy ${supportGem.name}.`);
@@ -577,6 +567,67 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const skillDef = skillById.get(targetSkill.definitionId);
     get().addLog('skillUse', `🟢 Added a socket to ${skillDef?.name || 'skill'}.`);
+  },
+
+  socketSupportGemInstance: (slotIndex: number, supportGemInstanceId: string) => {
+    const state = get();
+    const targetSkill = state.player.skills[slotIndex];
+    const supportGemInstance = state.player.supportGems.find(gem => gem.instanceId === supportGemInstanceId);
+    if (!targetSkill || !supportGemInstance) return;
+
+    const supportGem = supportGemById.get(supportGemInstance.definitionId);
+    const skillDef = skillById.get(targetSkill.definitionId);
+    if (!supportGem || !skillDef) return;
+
+    if (!supportGem.compatibleSkillTypes.includes(skillDef.type)) {
+      get().addLog('playerHit', `${supportGem.name} cannot support ${skillDef.name}.`);
+      return;
+    }
+
+    const isAlreadySocketed = state.player.skills.some(skill => skill?.socketedSupportIds.includes(supportGemInstanceId))
+      || state.player.inactiveSkills.some(skill => skill.socketedSupportIds.includes(supportGemInstanceId));
+    if (isAlreadySocketed) {
+      get().addLog('playerHit', `${supportGem.name} is already linked.`);
+      return;
+    }
+
+    if (targetSkill.socketedSupportIds.length >= targetSkill.maxSupportSockets) {
+      get().addLog('playerHit', `${skillDef.name} has no free support sockets.`);
+      return;
+    }
+
+    const updatedSkills = [...state.player.skills];
+    updatedSkills[slotIndex] = {
+      ...targetSkill,
+      socketedSupportIds: [...targetSkill.socketedSupportIds, supportGemInstanceId],
+    };
+
+    set({ player: { ...state.player, skills: updatedSkills } });
+    get().addLog('skillUse', `🔗 Linked ${supportGem.name} to ${skillDef.name}.`);
+  },
+
+  unsocketSupportGem: (slotIndex: number, socketIndex: number) => {
+    const state = get();
+    const targetSkill = state.player.skills[slotIndex];
+    if (!targetSkill) return;
+    if (socketIndex < 0 || socketIndex >= targetSkill.socketedSupportIds.length) return;
+
+    const supportGemInstanceId = targetSkill.socketedSupportIds[socketIndex];
+    const supportGemInstance = state.player.supportGems.find(gem => gem.instanceId === supportGemInstanceId);
+    const supportGem = supportGemInstance ? supportGemById.get(supportGemInstance.definitionId) : null;
+    const skillDef = skillById.get(targetSkill.definitionId);
+
+    const updatedSocketedIds = [...targetSkill.socketedSupportIds];
+    updatedSocketedIds.splice(socketIndex, 1);
+
+    const updatedSkills = [...state.player.skills];
+    updatedSkills[slotIndex] = {
+      ...targetSkill,
+      socketedSupportIds: updatedSocketedIds,
+    };
+
+    set({ player: { ...state.player, skills: updatedSkills } });
+    get().addLog('skillUse', `🔧 Removed ${supportGem?.name || 'support gem'} from ${skillDef?.name || 'skill'}.`);
   },
 
   toggleSupportGemSocket: (slotIndex: number, supportGemId: string) => {
@@ -1081,9 +1132,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         // Gem XP: all equipped skill gems gain XP from kills.
         player.skills = player.skills.map(skill => {
           if (!skill) return null;
+          const skillDef = skillById.get(skill.definitionId);
+          const nextLevelTotalXp = getGemNextLevelTotalExperience(skill.level, skillDef?.gemTotalExperienceByLevel);
+          const nextExperience = skill.experience + loot.experience;
           return {
             ...skill,
-            experience: skill.experience + loot.experience,
+            experience: nextLevelTotalXp === null
+              ? skill.experience
+              : Math.min(nextExperience, nextLevelTotalXp),
           };
         });
 
@@ -1096,9 +1152,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
         player.supportGems = player.supportGems.map(supportGem => {
           if (!equippedSupportInstanceIds.has(supportGem.instanceId)) return supportGem;
+          const supportDef = supportGemById.get(supportGem.definitionId);
+          const nextLevelTotalXp = getGemNextLevelTotalExperience(supportGem.level, supportDef?.gemTotalExperienceByLevel);
+          const nextExperience = supportGem.experience + loot.experience;
           return {
             ...supportGem,
-            experience: supportGem.experience + loot.experience,
+            experience: nextLevelTotalXp === null
+              ? supportGem.experience
+              : Math.min(nextExperience, nextLevelTotalXp),
           };
         });
         

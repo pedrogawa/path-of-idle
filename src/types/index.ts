@@ -275,12 +275,14 @@ export type BossSkillType = 'slam' | 'cleave' | 'projectile' | 'aoe' | 'buff' | 
 
 export type SkillType = 'attack' | 'spell' | 'buff' | 'aura';
 export type SkillTargeting = 'single' | 'aoe' | 'self' | 'cone';
+export type GemPrimaryAttribute = 'strength' | 'dexterity' | 'intelligence' | 'neutral';
 
 export interface SkillDefinition {
   id: string;
   name: string;
   description: string;
   icon: string; // Emoji for now
+  primaryAttribute: GemPrimaryAttribute;
   type: SkillType;
   targeting: SkillTargeting;
   
@@ -320,6 +322,7 @@ export interface SupportGemDefinition {
   name: string;
   description: string;
   icon: string;
+  primaryAttribute: GemPrimaryAttribute;
   color: string;
   requiredLevel: number;
   costCurrency: CurrencyType;
