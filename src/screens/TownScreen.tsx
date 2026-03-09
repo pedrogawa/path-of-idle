@@ -45,8 +45,8 @@ const VENDORS = [
     name: 'Crafting Bench',
     icon: '🔨',
     description: 'Craft and modify items',
-    action: null,
-    available: false,
+    action: 'crafting' as const,
+    available: true,
   },
   {
     id: 'skillTrainer',
@@ -183,6 +183,12 @@ export function TownScreen() {
             className="px-6 py-3 bg-[#1a1a24] border border-[#2a2a3a] text-white font-medium rounded-lg hover:border-[#c9a227]/50 transition-all"
           >
             📚 Skill Trainer
+          </button>
+          <button
+            onClick={() => navigateTo('crafting')}
+            className="px-6 py-3 bg-[#1a1a24] border border-[#2a2a3a] text-white font-medium rounded-lg hover:border-[#c9a227]/50 transition-all"
+          >
+            🔨 Crafting
           </button>
           <button
             onClick={() => navigateTo('monsterImporter')}

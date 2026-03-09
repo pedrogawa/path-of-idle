@@ -1,9 +1,13 @@
 import type { MonsterDefinition, BossDefinition, BossSkill } from '../types';
+import { ancientArcherLevelStats } from './monsterLevelData/ancientArcher';
+import { ancientBonestalkerLevelStats } from './monsterLevelData/ancientBonestalker';
+import { boneRhoaLevelStats } from './monsterLevelData/boneRhoa';
 import { drownedZombieLevelStats } from './monsterLevelData/drownedZombie';
 import { drippingDeadLevelStats } from './monsterLevelData/drippingDead';
 import { fireFuryLevelStats } from './monsterLevelData/fireFury';
 import { hailrakeLevelStats } from './monsterLevelData/hailrake';
 import { hillockLevelStats } from './monsterLevelData/hillock';
+import { kadavrusTheDefilerLevelStats } from './monsterLevelData/kadavrusTheDefiler';
 import { hungryCorpseLevelStats } from './monsterLevelData/hungryCorpse';
 import { oozebackBloomLevelStats } from './monsterLevelData/oozebackBloom';
 import { cannibalLevelStats } from './monsterLevelData/cannibal';
@@ -123,6 +127,27 @@ const oozebackBloomSkills: BossSkill[] = [
     name: 'Bloom Spore Burst',
     description: 'Releases a toxic burst of spores',
     damageMultiplier: 2.8,
+    cooldown: 7,
+    skillType: 'aoe',
+    color: '#2f855a',
+  },
+];
+
+const kadavrusTheDefilerSkills: BossSkill[] = [
+  {
+    id: 'kadavrusRend',
+    name: 'Defiler Rend',
+    description: 'A vicious cleave empowered by corruption',
+    damageMultiplier: 2.3,
+    cooldown: 4,
+    skillType: 'cleave',
+    color: '#6b46c1',
+  },
+  {
+    id: 'putridNova',
+    name: 'Putrid Nova',
+    description: 'Unleashes a burst of foul necrotic energy',
+    damageMultiplier: 2.9,
     cooldown: 7,
     skillType: 'aoe',
     color: '#2f855a',
@@ -553,6 +578,39 @@ export const monsters: MonsterDefinition[] = [
     levelStats: drippingDeadLevelStats,
   },
   {
+    id: 'ancientArcher',
+    name: 'Ancient Archer',
+    baseLife: 21,
+    baseDamage: 6,
+    attackSpeed: 0.7752,
+    damageType: 'physical',
+    experienceReward: 24,
+    lootBonus: 1,
+    levelStats: ancientArcherLevelStats,
+  },
+  {
+    id: 'ancientBonestalker',
+    name: 'Ancient Bonestalker',
+    baseLife: 20,
+    baseDamage: 8,
+    attackSpeed: 1.0256,
+    damageType: 'physical',
+    experienceReward: 20,
+    lootBonus: 1,
+    levelStats: ancientBonestalkerLevelStats,
+  },
+  {
+    id: 'boneRhoa',
+    name: 'Bone Rhoa',
+    baseLife: 25,
+    baseDamage: 8,
+    attackSpeed: 0.7168,
+    damageType: 'physical',
+    experienceReward: 28,
+    lootBonus: 1,
+    levelStats: boneRhoaLevelStats,
+  },
+  {
     id: 'tercelRhoa',
     name: 'Tercel Rhoa',
     baseLife: 28,
@@ -640,6 +698,20 @@ export const bosses: BossDefinition[] = [
     guaranteedDrops: ['rustySword', 'leatherCap'],
     skills: oozebackBloomSkills,
     levelStats: oozebackBloomLevelStats,
+  },
+  {
+    id: 'kadavrusTheDefiler',
+    name: 'Kadavrus the Defiler',
+    title: 'Horror of the Fetid Pool',
+    baseLife: 70,
+    baseDamage: 9,
+    attackSpeed: 0.8547,
+    damageType: 'physical',
+    experienceReward: 40,
+    lootBonus: 3,
+    guaranteedDrops: ['rustySword', 'leatherCap'],
+    skills: kadavrusTheDefilerSkills,
+    levelStats: kadavrusTheDefilerLevelStats,
   },
   {
     id: 'drownedCaptain',

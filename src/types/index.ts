@@ -19,11 +19,13 @@ export type EquipmentSlot =
 export type AffixType = 'prefix' | 'suffix';
 
 export type MonsterRarity = 'normal' | 'magic' | 'rare' | 'boss';
+export type MonsterAggroState = 'idle' | 'alerted' | 'engaged';
 
 export type CurrencyType = 
   | 'transmutation'  // Normal → Magic
   | 'alteration'     // Reroll Magic
   | 'augmentation'   // Add affix to Magic
+  | 'regal'          // Magic → Rare
   | 'alchemy'        // Normal → Rare
   | 'chaos'          // Reroll Rare
   | 'exalted'        // Add affix to Rare
@@ -34,6 +36,13 @@ export type CurrencyType =
 export type DamageType = 'physical' | 'fire' | 'cold' | 'lightning';
 
 export type ItemBaseTag =
+  | 'helmetStrength'
+  | 'helmetDexterity'
+  | 'helmetIntelligence'
+  | 'helmetStrengthDexterity'
+  | 'helmetStrengthIntelligence'
+  | 'helmetDexterityIntelligence'
+  | 'helmetStrengthDexterityIntelligence'
   | 'bodyArmorStrength'
   | 'bodyArmorDexterity'
   | 'bodyArmorIntelligence'
@@ -306,6 +315,10 @@ export interface Monster {
   
   // Boss-specific: skill cooldowns (only present for bosses)
   skillStates?: BossSkillState[];
+
+  // Encounter AI
+  packId: string;
+  aggroState: MonsterAggroState;
 }
 
 // ============================================
@@ -470,7 +483,7 @@ export interface GameMap {
 // GAME STATE
 // ============================================
 
-export type GameScreen = 'town' | 'worldMap' | 'combat' | 'character' | 'skillTrainer' | 'monsterImporter';
+export type GameScreen = 'town' | 'worldMap' | 'combat' | 'character' | 'skillTrainer' | 'crafting' | 'monsterImporter';
 
 export type CombatState = 'idle' | 'fighting' | 'looting' | 'dead';
 
@@ -491,6 +504,10 @@ export interface GameState {
   // Current activity
   currentMapId: string | null;
   combatState: CombatState;
+  playerArenaX: number;
+  playerArenaY: number;
+  playerMoveDirectionX: number;
+  playerMoveDirectionY: number;
   
   // Multi-monster support
   monsters: Monster[];

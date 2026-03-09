@@ -466,7 +466,7 @@ export function CombatScreen() {
               <span>
                 Monsters: <span className="text-white">{monsters.length}</span>
               </span>
-              {!isBossFight && !bossReady && (
+              {!isBossFight && !bossReady && spawnTimer > 0.05 && (
                 <span>
                   Next: <span className="text-green-400">{spawnTimer.toFixed(1)}s</span>
                 </span>

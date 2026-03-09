@@ -1,4 +1,4 @@
-import type { Monster, MonsterRarity, MonsterDefinition } from '../types';
+import type { Monster, MonsterAggroState, MonsterRarity, MonsterDefinition } from '../types';
 import { monsterById, bossById, mapById } from '../data';
 
 let monsterIdCounter = 0;
@@ -9,8 +9,18 @@ function generateMonsterId(): string {
 const SPAWN_DISTANCE = 100;
 const MELEE_RANGE = 12;
 const BASE_MOVE_SPEED = 35;
+const PLAYER_MOVE_SPEED = 26;
 const ARENA_MIN = 6;
 const ARENA_MAX = 94;
+const PACK_MIN_SIZE = 3;
+const PACK_MAX_SIZE = 5;
+const PACK_NODE_MIN_DISTANCE = 18;
+const PACK_MIN_PLAYER_DISTANCE = 24;
+const PACK_SPAWN_RADIUS = 7.5;
+
+export const MONSTER_ALERT_RANGE = 34;
+export const MONSTER_ENGAGE_RANGE = 24;
+export const MONSTER_DISENGAGE_RANGE = 44;
 
 export interface ArenaPosition {
   x: number;
@@ -87,6 +97,19 @@ function collidesWithAnyObstacle(
   return obstacles.some(obstacle => pointIntersectsObstacle(x, y, radius, obstacle));
 }
 
+function pointInsideObstacle(x: number, y: number, obstacle: ArenaObstacle, padding: number = 0): boolean {
+  return (
+    x > obstacle.x - padding &&
+    x < obstacle.x + obstacle.width + padding &&
+    y > obstacle.y - padding &&
+    y < obstacle.y + obstacle.height + padding
+  );
+}
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 function getSpawnPointFromEdge(): ArenaPosition {
   const edge = Math.floor(Math.random() * 4);
   const spread = () => 14 + Math.random() * 72;
@@ -97,12 +120,135 @@ function getSpawnPointFromEdge(): ArenaPosition {
   return { x: ARENA_MIN, y: spread() };
 }
 
-function distanceToPlayerFrom(x: number, y: number): number {
-  return Math.hypot(x - PLAYER_ARENA_POSITION.x, y - PLAYER_ARENA_POSITION.y);
+function distanceToPlayerFrom(
+  x: number,
+  y: number,
+  playerPosition: ArenaPosition = PLAYER_ARENA_POSITION,
+): number {
+  return Math.hypot(x - playerPosition.x, y - playerPosition.y);
 }
 
 export function getArenaObstaclesForMap(mapId: string): ArenaObstacle[] {
   return MAP_OBSTACLES[mapId] ?? DEFAULT_OBSTACLES;
+}
+
+function getEncounterNodesForMap(
+  mapId: string,
+  count: number,
+): ArenaPosition[] {
+  const obstacles = getArenaObstaclesForMap(mapId);
+  const minNodeDistance = Math.max(11, PACK_NODE_MIN_DISTANCE - Math.floor(count / 4));
+  const nodes: ArenaPosition[] = [];
+
+  for (let attempt = 0; attempt < count * 70 && nodes.length < count; attempt += 1) {
+    const candidate = {
+      x: 12 + Math.random() * 76,
+      y: 14 + Math.random() * 72,
+    };
+
+    if (distanceToPlayerFrom(candidate.x, candidate.y, PLAYER_ARENA_POSITION) < PACK_MIN_PLAYER_DISTANCE) {
+      continue;
+    }
+
+    if (collidesWithAnyObstacle(candidate.x, candidate.y, 2.5, obstacles)) {
+      continue;
+    }
+
+    const tooCloseToExisting = nodes.some(node => Math.hypot(node.x - candidate.x, node.y - candidate.y) < minNodeDistance);
+    if (tooCloseToExisting) {
+      continue;
+    }
+
+    nodes.push(candidate);
+  }
+
+  if (nodes.length >= count) {
+    return nodes;
+  }
+
+  const fallbackNodes: ArenaPosition[] = [
+    { x: 18, y: 22 },
+    { x: 82, y: 22 },
+    { x: 20, y: 78 },
+    { x: 80, y: 78 },
+    { x: 50, y: 22 },
+    { x: 50, y: 80 },
+    { x: 24, y: 52 },
+    { x: 76, y: 52 },
+  ];
+
+  for (const node of fallbackNodes) {
+    if (nodes.length >= count) break;
+    if (distanceToPlayerFrom(node.x, node.y, PLAYER_ARENA_POSITION) < PACK_MIN_PLAYER_DISTANCE) continue;
+    if (collidesWithAnyObstacle(node.x, node.y, 2.5, obstacles)) continue;
+    nodes.push(node);
+  }
+
+  if (nodes.length === 0) {
+    nodes.push({ x: 18, y: 22 });
+  }
+
+  const existingNodes = [...nodes];
+  while (nodes.length < count) {
+    const base = existingNodes[nodes.length % existingNodes.length];
+    nodes.push({ x: base.x, y: base.y });
+  }
+
+  return nodes.slice(0, count);
+}
+
+function buildPackSizes(totalMonsters: number): number[] {
+  const total = Math.max(0, Math.floor(totalMonsters));
+  if (total === 0) return [];
+
+  const sizes: number[] = [];
+  let remaining = total;
+
+  while (remaining > 0) {
+    if (remaining <= PACK_MAX_SIZE) {
+      if (remaining < PACK_MIN_SIZE && sizes.length > 0) {
+        sizes[sizes.length - 1] += remaining;
+      } else {
+        sizes.push(remaining);
+      }
+      break;
+    }
+
+    const maxAllowed = Math.min(PACK_MAX_SIZE, remaining - PACK_MIN_SIZE);
+    const size = randomInt(PACK_MIN_SIZE, Math.max(PACK_MIN_SIZE, maxAllowed));
+    sizes.push(size);
+    remaining -= size;
+  }
+
+  return sizes;
+}
+
+function getPackMemberSpawnPoint(
+  center: ArenaPosition,
+  memberIndex: number,
+  packSize: number,
+  obstacles: ArenaObstacle[],
+): ArenaPosition {
+  const baseAngle = (Math.PI * 2 * memberIndex) / Math.max(1, packSize);
+  const attemptAngles = [0, Math.PI / 6, -Math.PI / 6, Math.PI / 3, -Math.PI / 3];
+  const attemptRadii = [1, 0.8, 0.6, 0.45];
+
+  for (const radiusMultiplier of attemptRadii) {
+    for (const angleOffset of attemptAngles) {
+      const angle = baseAngle + angleOffset + (Math.random() - 0.5) * 0.16;
+      const radius = PACK_SPAWN_RADIUS * radiusMultiplier * (0.55 + Math.random() * 0.45);
+      const x = clampArenaPosition(center.x + Math.cos(angle) * radius);
+      const y = clampArenaPosition(center.y + Math.sin(angle) * radius);
+      if (!collidesWithAnyObstacle(x, y, 1.2, obstacles)) {
+        return { x, y };
+      }
+    }
+  }
+
+  return {
+    x: clampArenaPosition(center.x),
+    y: clampArenaPosition(center.y),
+  };
 }
 
 /**
@@ -159,7 +305,11 @@ export function spawnMonster(
   level: number,
   positionIndex: number = 0,
   spawnPoint: ArenaPosition = getSpawnPointFromEdge(),
-  forcedRarity?: MonsterRarity
+  forcedRarity?: MonsterRarity,
+  options?: {
+    packId?: string;
+    aggroState?: MonsterAggroState;
+  },
 ): Monster | null {
   const definition = monsterById.get(definitionId);
   if (!definition) return null;
@@ -208,6 +358,8 @@ export function spawnMonster(
     attackCooldown: 0,
     bleedDps: 0,
     bleedRemainingDuration: 0,
+    packId: options?.packId ?? 'ambient',
+    aggroState: options?.aggroState ?? 'engaged',
   };
 }
 
@@ -249,6 +401,8 @@ export function spawnBoss(bossId: string, mapLevel: number): Monster | null {
     bleedDps: 0,
     bleedRemainingDuration: 0,
     skillStates, // Boss skill cooldowns
+    packId: 'boss',
+    aggroState: 'engaged',
   };
 }
 
@@ -261,7 +415,58 @@ export function spawnMapMonster(mapId: string, positionIndex: number = 0): Monst
   
   const monsterId = map.monsterPool[Math.floor(Math.random() * map.monsterPool.length)];
   
-  return spawnMonster(monsterId, map.monsterLevel, positionIndex, getSpawnPointFromEdge());
+  return spawnMonster(
+    monsterId,
+    map.monsterLevel,
+    positionIndex,
+    getSpawnPointFromEdge(),
+    undefined,
+    {
+      packId: `edge_spawn_${positionIndex}`,
+      aggroState: 'engaged',
+    },
+  );
+}
+
+export function spawnMapEncounterWave(mapId: string, totalMonsters: number): Monster[] {
+  const map = mapById.get(mapId);
+  if (!map) return [];
+
+  const packSizes = buildPackSizes(totalMonsters);
+  if (packSizes.length === 0) return [];
+
+  const nodes = getEncounterNodesForMap(mapId, packSizes.length);
+  const obstacles = getArenaObstaclesForMap(mapId);
+  const spawned: Monster[] = [];
+  let nextPositionIndex = 0;
+
+  packSizes.forEach((packSize, packIndex) => {
+    const packId = `pack_${Date.now()}_${packIndex}`;
+    const center = nodes[packIndex];
+    const monsterId = map.monsterPool[Math.floor(Math.random() * map.monsterPool.length)];
+
+    for (let memberIndex = 0; memberIndex < packSize; memberIndex += 1) {
+      const spawnPoint = getPackMemberSpawnPoint(center, memberIndex, packSize, obstacles);
+      const monster = spawnMonster(
+        monsterId,
+        map.monsterLevel,
+        nextPositionIndex,
+        spawnPoint,
+        undefined,
+        {
+          packId,
+          aggroState: 'idle',
+        },
+      );
+
+      if (monster) {
+        spawned.push(monster);
+        nextPositionIndex += 1;
+      }
+    }
+  });
+
+  return spawned;
 }
 
 /**
@@ -280,16 +485,22 @@ export function getNextPositionIndex(existingMonsters: Monster[]): number {
 /**
  * Check if monster is in melee range
  */
-export function isInMeleeRange(monster: Monster): boolean {
-  return getDistanceToPlayer(monster) <= MELEE_RANGE;
+export function isInMeleeRange(
+  monster: Monster,
+  playerPosition: ArenaPosition = PLAYER_ARENA_POSITION,
+): boolean {
+  return getDistanceToPlayer(monster, playerPosition) <= MELEE_RANGE;
 }
 
 /**
  * Get the best target based on priority (rarity first, then HP)
  * Only considers monsters in melee range
  */
-export function getBestTarget(monsters: Monster[]): Monster | null {
-  const inRange = monsters.filter(m => isInMeleeRange(m) && m.currentLife > 0);
+export function getBestTarget(
+  monsters: Monster[],
+  playerPosition: ArenaPosition = PLAYER_ARENA_POSITION,
+): Monster | null {
+  const inRange = monsters.filter(m => isInMeleeRange(m, playerPosition) && m.currentLife > 0);
   if (inRange.length === 0) return null;
   
   const sorted = [...inRange].sort((a, b) => {
@@ -301,18 +512,53 @@ export function getBestTarget(monsters: Monster[]): Monster | null {
   return sorted[0];
 }
 
-export function getDistanceToPlayer(monster: Monster): number {
-  return distanceToPlayerFrom(monster.arenaX, monster.arenaY);
+export function getDistanceToPlayer(
+  monster: Monster,
+  playerPosition: ArenaPosition = PLAYER_ARENA_POSITION,
+): number {
+  return distanceToPlayerFrom(monster.arenaX, monster.arenaY, playerPosition);
+}
+
+export function hasLineOfSightToPlayer(
+  monster: Monster,
+  mapId: string,
+  playerPosition: ArenaPosition = PLAYER_ARENA_POSITION,
+): boolean {
+  const obstacles = getArenaObstaclesForMap(mapId);
+  if (obstacles.length === 0) {
+    return true;
+  }
+
+  const startX = monster.arenaX;
+  const startY = monster.arenaY;
+  const endX = playerPosition.x;
+  const endY = playerPosition.y;
+  const distance = Math.hypot(endX - startX, endY - startY);
+  const steps = Math.max(8, Math.ceil(distance / 2));
+
+  for (let step = 1; step < steps; step += 1) {
+    const t = step / steps;
+    const x = startX + (endX - startX) * t;
+    const y = startY + (endY - startY) * t;
+
+    const blocked = obstacles.some(obstacle => pointInsideObstacle(x, y, obstacle, 0.3));
+    if (blocked) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 export function stepMonsterTowardsPlayer(
   monster: Monster,
   mapId: string,
   deltaTime: number,
+  playerPosition: ArenaPosition = PLAYER_ARENA_POSITION,
 ): Monster {
   const obstacles = getArenaObstaclesForMap(mapId);
   const radius = monster.rarity === 'boss' ? 2.2 : 1.2;
-  const currentDistance = distanceToPlayerFrom(monster.arenaX, monster.arenaY);
+  const currentDistance = distanceToPlayerFrom(monster.arenaX, monster.arenaY, playerPosition);
 
   // Hold position once in melee so monsters stop "pushing" through the player.
   if (currentDistance <= MELEE_RANGE) {
@@ -322,8 +568,8 @@ export function stepMonsterTowardsPlayer(
     };
   }
 
-  const toPlayerX = PLAYER_ARENA_POSITION.x - monster.arenaX;
-  const toPlayerY = PLAYER_ARENA_POSITION.y - monster.arenaY;
+  const toPlayerX = playerPosition.x - monster.arenaX;
+  const toPlayerY = playerPosition.y - monster.arenaY;
   const toPlayer = normalize(toPlayerX, toPlayerY);
   const desiredAdvance = Math.max(0, monster.moveSpeed * deltaTime);
   const maxAdvanceWithoutEnteringMelee = Math.max(0, currentDistance - MELEE_RANGE);
@@ -352,7 +598,7 @@ export function stepMonsterTowardsPlayer(
         continue;
       }
 
-      const candidateDistance = distanceToPlayerFrom(candidateX, candidateY);
+      const candidateDistance = distanceToPlayerFrom(candidateX, candidateY, playerPosition);
       if (!best || candidateDistance < best.distance) {
         best = { x: candidateX, y: candidateY, distance: candidateDistance };
       }
@@ -370,8 +616,104 @@ export function stepMonsterTowardsPlayer(
 
   return {
     ...monster,
-    distance: getDistanceToPlayer(monster),
+    distance: getDistanceToPlayer(monster, playerPosition),
   };
 }
 
-export { SPAWN_DISTANCE, MELEE_RANGE, BASE_MOVE_SPEED };
+export function stepPlayerPosition(
+  playerPosition: ArenaPosition,
+  mapId: string,
+  deltaTime: number,
+  directionX: number,
+  directionY: number,
+): ArenaPosition {
+  const magnitude = Math.hypot(directionX, directionY);
+  if (magnitude <= 0.001) {
+    return playerPosition;
+  }
+
+  const dirX = directionX / magnitude;
+  const dirY = directionY / magnitude;
+  const moveDistance = Math.max(0, PLAYER_MOVE_SPEED * deltaTime);
+  const obstacles = getArenaObstaclesForMap(mapId);
+  const radius = 1.2;
+  const attempts = [1, 0.75, 0.5, 0.25];
+
+  for (const mult of attempts) {
+    const candidateX = clampArenaPosition(playerPosition.x + dirX * moveDistance * mult);
+    const candidateY = clampArenaPosition(playerPosition.y + dirY * moveDistance * mult);
+    if (!collidesWithAnyObstacle(candidateX, candidateY, radius, obstacles)) {
+      return { x: candidateX, y: candidateY };
+    }
+  }
+
+  // Sliding fallback: keep whichever axis can move around obstacle.
+  const slideX = clampArenaPosition(playerPosition.x + dirX * moveDistance * 0.5);
+  if (!collidesWithAnyObstacle(slideX, playerPosition.y, radius, obstacles)) {
+    return { x: slideX, y: playerPosition.y };
+  }
+  const slideY = clampArenaPosition(playerPosition.y + dirY * moveDistance * 0.5);
+  if (!collidesWithAnyObstacle(playerPosition.x, slideY, radius, obstacles)) {
+    return { x: playerPosition.x, y: slideY };
+  }
+
+  return playerPosition;
+}
+
+export function stepPlayerTowardsTarget(
+  playerPosition: ArenaPosition,
+  targetPosition: ArenaPosition,
+  mapId: string,
+  deltaTime: number,
+): ArenaPosition {
+  const toTargetX = targetPosition.x - playerPosition.x;
+  const toTargetY = targetPosition.y - playerPosition.y;
+  const distanceToTarget = Math.hypot(toTargetX, toTargetY);
+
+  if (distanceToTarget <= 0.001) {
+    return playerPosition;
+  }
+
+  const moveDistance = Math.max(0, PLAYER_MOVE_SPEED * deltaTime);
+  if (moveDistance <= 0.001) {
+    return playerPosition;
+  }
+
+  const obstacles = getArenaObstaclesForMap(mapId);
+  const radius = 1.2;
+  const targetDir = normalize(toTargetX, toTargetY);
+  const angleSteps = [0, Math.PI / 10, -Math.PI / 10, Math.PI / 6, -Math.PI / 6, Math.PI / 3, -Math.PI / 3, Math.PI / 2, -Math.PI / 2];
+  const stepAttempts = [1, 0.75, 0.5, 0.25]
+    .map(multiplier => moveDistance * multiplier)
+    .filter(step => step > 0.01);
+
+  for (const stepDistance of stepAttempts) {
+    let best: { x: number; y: number; distance: number } | null = null;
+
+    for (const radians of angleSteps) {
+      const candidateDir = rotateVector(targetDir.x, targetDir.y, radians);
+      const candidateX = clampArenaPosition(playerPosition.x + candidateDir.x * stepDistance);
+      const candidateY = clampArenaPosition(playerPosition.y + candidateDir.y * stepDistance);
+      if (collidesWithAnyObstacle(candidateX, candidateY, radius, obstacles)) {
+        continue;
+      }
+
+      const candidateDistance = Math.hypot(targetPosition.x - candidateX, targetPosition.y - candidateY);
+      if (!best || candidateDistance < best.distance) {
+        best = { x: candidateX, y: candidateY, distance: candidateDistance };
+      }
+    }
+
+    if (best) {
+      return {
+        x: best.x,
+        y: best.y,
+      };
+    }
+  }
+
+  // Last fallback: try direct axis sliding.
+  return stepPlayerPosition(playerPosition, mapId, deltaTime, toTargetX, toTargetY);
+}
+
+export { SPAWN_DISTANCE, MELEE_RANGE, BASE_MOVE_SPEED, PLAYER_MOVE_SPEED, ARENA_MIN, ARENA_MAX };

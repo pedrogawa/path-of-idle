@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { computePlayerStats } from '../lib/combat';
-import { isInMeleeRange, getBestTarget, PLAYER_ARENA_POSITION, getArenaObstaclesForMap } from '../lib/monsters';
+import { ARENA_MAX, ARENA_MIN, isInMeleeRange, getBestTarget, getArenaObstaclesForMap } from '../lib/monsters';
 import { mapById } from '../data';
 import type { Monster } from '../types';
 
@@ -27,6 +27,9 @@ interface LootDrop {
 }
 
 const ARENA_HEIGHT = 220;
+const CAMERA_VIEW_WIDTH = 42;
+const CAMERA_VIEW_HEIGHT = 31;
+const CAMERA_CULL_MARGIN = 8;
 
 const RARITY_COLORS = {
   normal: { primary: '#9ca3af', secondary: '#6b7280', glow: 'rgba(156, 163, 175, 0.3)' },
@@ -537,6 +540,9 @@ export function CombatArena({
   className = '',
 }: CombatArenaProps = {}) {
   const player = useGameStore(state => state.player);
+  const playerArenaX = useGameStore(state => state.playerArenaX);
+  const playerArenaY = useGameStore(state => state.playerArenaY);
+  const setPlayerMoveDirection = useGameStore(state => state.setPlayerMoveDirection);
   const currentMapId = useGameStore(state => state.currentMapId);
   const monsters = useGameStore(state => state.monsters);
   const combatState = useGameStore(state => state.combatState);
@@ -559,6 +565,47 @@ export function CombatArena({
     () => (map ? getArenaObstaclesForMap(map.id) : []),
     [map],
   );
+  const playerPosition = useMemo(() => ({ x: playerArenaX, y: playerArenaY }), [playerArenaX, playerArenaY]);
+  const camera = useMemo(() => {
+    const maxLeft = Math.max(ARENA_MIN, ARENA_MAX - CAMERA_VIEW_WIDTH);
+    const maxTop = Math.max(ARENA_MIN, ARENA_MAX - CAMERA_VIEW_HEIGHT);
+    const left = Math.min(Math.max(playerPosition.x - CAMERA_VIEW_WIDTH / 2, ARENA_MIN), maxLeft);
+    const top = Math.min(Math.max(playerPosition.y - CAMERA_VIEW_HEIGHT / 2, ARENA_MIN), maxTop);
+    return {
+      left,
+      top,
+      right: left + CAMERA_VIEW_WIDTH,
+      bottom: top + CAMERA_VIEW_HEIGHT,
+      width: CAMERA_VIEW_WIDTH,
+      height: CAMERA_VIEW_HEIGHT,
+    };
+  }, [playerPosition.x, playerPosition.y]);
+  const worldToScreen = useCallback((x: number, y: number) => {
+    return {
+      x: ((x - camera.left) / camera.width) * 100,
+      y: ((y - camera.top) / camera.height) * 100,
+    };
+  }, [camera.height, camera.left, camera.top, camera.width]);
+  const isWorldPointVisible = useCallback((x: number, y: number, margin: number = CAMERA_CULL_MARGIN) => {
+    return (
+      x >= camera.left - margin &&
+      x <= camera.right + margin &&
+      y >= camera.top - margin &&
+      y <= camera.bottom + margin
+    );
+  }, [camera.bottom, camera.left, camera.right, camera.top]);
+  const isWorldRectVisible = useCallback((x: number, y: number, width: number, height: number, margin: number = CAMERA_CULL_MARGIN) => {
+    return (
+      x + width >= camera.left - margin &&
+      x <= camera.right + margin &&
+      y + height >= camera.top - margin &&
+      y <= camera.bottom + margin
+    );
+  }, [camera.bottom, camera.left, camera.right, camera.top]);
+  const onScreenMonsters = useMemo(() => {
+    return monsters.filter(monster => isWorldPointVisible(monster.arenaX, monster.arenaY));
+  }, [isWorldPointVisible, monsters]);
+  const visibleTarget = useMemo(() => getBestTarget(onScreenMonsters, playerPosition), [onScreenMonsters, playerPosition]);
 
   const [playerAttacking, setPlayerAttacking] = useState(false);
   const [attackingMonsters, setAttackingMonsters] = useState<Set<string>>(new Set());
@@ -605,6 +652,55 @@ export function CombatArena({
   const getMonsterPosition = useCallback((monster: Monster): { x: number; y: number } => {
     return { x: monster.arenaX, y: monster.arenaY };
   }, []);
+
+  useEffect(() => {
+    if (combatState !== 'fighting') {
+      setPlayerMoveDirection(0, 0);
+      return;
+    }
+
+    const pressed = new Set<string>();
+    const toKey = (value: string) => value.toLowerCase();
+    const movementKeys = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+    const updateDirection = () => {
+      let x = 0;
+      let y = 0;
+      if (pressed.has('a') || pressed.has('arrowleft')) x -= 1;
+      if (pressed.has('d') || pressed.has('arrowright')) x += 1;
+      if (pressed.has('w') || pressed.has('arrowup')) y -= 1;
+      if (pressed.has('s') || pressed.has('arrowdown')) y += 1;
+      setPlayerMoveDirection(x, y);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA'].includes(target.tagName)) {
+        return;
+      }
+      const key = toKey(event.key);
+      if (!movementKeys.has(key)) return;
+      event.preventDefault();
+      pressed.add(key);
+      updateDirection();
+    };
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      const key = toKey(event.key);
+      if (!movementKeys.has(key)) return;
+      event.preventDefault();
+      pressed.delete(key);
+      updateDirection();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      setPlayerMoveDirection(0, 0);
+    };
+  }, [combatState, setPlayerMoveDirection]);
 
   useEffect(() => {
     if (combatState !== 'fighting') return;
@@ -660,7 +756,7 @@ export function CombatArena({
               });
             }, 100);
           }
-          spawnDamage(damage, PLAYER_ARENA_POSITION.x, PLAYER_ARENA_POSITION.y, false);
+          spawnDamage(damage, playerPosition.x, playerPosition.y, false);
         });
       }
     }
@@ -668,7 +764,7 @@ export function CombatArena({
     lastMonstersRef.current = currentMonsterHps;
     lastPlayerHpRef.current = player.currentLife;
     lastMonsterIdsRef.current = currentMonsterIds;
-  }, [monsters, player.currentLife, combatState, spawnDamage, spawnLoot, playerStats.averageHit, getMonsterPosition]);
+  }, [monsters, player.currentLife, combatState, spawnDamage, spawnLoot, playerPosition.x, playerPosition.y, playerStats.averageHit, getMonsterPosition]);
 
   useEffect(() => {
     if (combatLog.length > lastCombatLogLengthRef.current) {
@@ -677,17 +773,17 @@ export function CombatArena({
       for (const entry of newEntries) {
         if (entry.type === 'evade') {
           requestAnimationFrame(() => {
-            spawnDamage(0, PLAYER_ARENA_POSITION.x, PLAYER_ARENA_POSITION.y, false, false, 'evade');
+            spawnDamage(0, playerPosition.x, playerPosition.y, false, false, 'evade');
           });
         } else if (entry.type === 'block') {
           requestAnimationFrame(() => {
-            spawnDamage(0, PLAYER_ARENA_POSITION.x, PLAYER_ARENA_POSITION.y, false, false, 'block');
+            spawnDamage(0, playerPosition.x, playerPosition.y, false, false, 'block');
           });
         }
       }
     }
     lastCombatLogLengthRef.current = combatLog.length;
-  }, [combatLog, spawnDamage]);
+  }, [combatLog, playerPosition.x, playerPosition.y, spawnDamage]);
 
   if (combatState === 'idle' || !map) {
     if (fullScreen) {
@@ -741,7 +837,7 @@ export function CombatArena({
             <span className="text-xs text-gray-500">
               Monsters: <span className="text-white font-medium">{monsters.length}</span>
             </span>
-            {!isBossFight && !bossReady && (
+            {!isBossFight && !bossReady && spawnTimer > 0.05 && (
               <span className="text-xs text-gray-500">
                 Next: <span className="text-green-400 font-medium">{spawnTimer.toFixed(1)}s</span>
               </span>
@@ -809,6 +905,7 @@ export function CombatArena({
             top: '38%',
             bottom: '-6%',
             background: `linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(0,0,0,0.22) 74%), repeating-linear-gradient(165deg, ${biomeVisual.laneColor} 0px, ${biomeVisual.laneColor} 2px, rgba(0,0,0,0) 2px, rgba(0,0,0,0) 28px)`,
+            backgroundPosition: `${-camera.left * 8}px ${-camera.top * 8}px`,
             clipPath: 'polygon(8% 0%, 92% 0%, 100% 100%, 0% 100%)',
             opacity: 0.9,
           }}
@@ -825,56 +922,70 @@ export function CombatArena({
         />
 
         {/* Geometric props to hint map volume */}
-        {terrainProps.map(prop => (
-          <div
-            key={prop.id}
-            className="absolute pointer-events-none"
-            style={{
-              left: `${prop.x}%`,
-              top: `${prop.y}%`,
-              transform: 'translate(-50%, -50%)',
-              width: `${prop.w}px`,
-              height: `${prop.h}px`,
-              background: `linear-gradient(120deg, ${prop.color} 0%, rgba(0,0,0,0.28) 100%)`,
-              border: '1px solid rgba(255,255,255,0.09)',
-              boxShadow: 'inset -8px -8px 10px rgba(0,0,0,0.25)',
-              clipPath: 'polygon(15% 0%, 100% 20%, 85% 100%, 0% 78%)',
-              opacity: 0.55,
-              zIndex: prop.y < 52 ? 2 : 4,
-            }}
-          >
+        {terrainProps.map(prop => {
+          if (!isWorldPointVisible(prop.x, prop.y, 10)) {
+            return null;
+          }
+
+          const screenPos = worldToScreen(prop.x, prop.y);
+          return (
             <div
-              className="absolute left-1/2 -translate-x-1/2"
+              key={prop.id}
+              className="absolute pointer-events-none"
               style={{
-                bottom: -4,
-                width: '85%',
-                height: 5,
-                borderRadius: 999,
-                background: 'rgba(0,0,0,0.3)',
-                filter: 'blur(0.5px)',
+                left: `${screenPos.x}%`,
+                top: `${screenPos.y}%`,
+                transform: 'translate(-50%, -50%)',
+                width: `${prop.w}px`,
+                height: `${prop.h}px`,
+                background: `linear-gradient(120deg, ${prop.color} 0%, rgba(0,0,0,0.28) 100%)`,
+                border: '1px solid rgba(255,255,255,0.09)',
+                boxShadow: 'inset -8px -8px 10px rgba(0,0,0,0.25)',
+                clipPath: 'polygon(15% 0%, 100% 20%, 85% 100%, 0% 78%)',
+                opacity: 0.55,
+                zIndex: prop.y < playerPosition.y ? 2 : 4,
               }}
-            />
-          </div>
-        ))}
+            >
+              <div
+                className="absolute left-1/2 -translate-x-1/2"
+                style={{
+                  bottom: -4,
+                  width: '85%',
+                  height: 5,
+                  borderRadius: 999,
+                  background: 'rgba(0,0,0,0.3)',
+                  filter: 'blur(0.5px)',
+                }}
+              />
+            </div>
+          );
+        })}
 
         {/* Solid walls / blockers */}
-        {mapObstacles.map((obstacle, index) => (
-          <div
-            key={`wall_${index}_${obstacle.x}_${obstacle.y}`}
-            className="absolute pointer-events-none"
-            style={{
-              left: `${obstacle.x}%`,
-              top: `${obstacle.y}%`,
-              width: `${obstacle.width}%`,
-              height: `${obstacle.height}%`,
-              background: 'linear-gradient(145deg, rgba(40,48,66,0.8), rgba(23,29,43,0.88))',
-              border: '1px solid rgba(138,156,191,0.35)',
-              boxShadow: 'inset -8px -8px 10px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.25)',
-              borderRadius: 8,
-              zIndex: obstacle.y > 50 ? 4 : 3,
-            }}
-          />
-        ))}
+        {mapObstacles.map((obstacle, index) => {
+          if (!isWorldRectVisible(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 6)) {
+            return null;
+          }
+
+          const screenPos = worldToScreen(obstacle.x, obstacle.y);
+          return (
+            <div
+              key={`wall_${index}_${obstacle.x}_${obstacle.y}`}
+              className="absolute pointer-events-none"
+              style={{
+                left: `${screenPos.x}%`,
+                top: `${screenPos.y}%`,
+                width: `${(obstacle.width / camera.width) * 100}%`,
+                height: `${(obstacle.height / camera.height) * 100}%`,
+                background: 'linear-gradient(145deg, rgba(40,48,66,0.8), rgba(23,29,43,0.88))',
+                border: '1px solid rgba(138,156,191,0.35)',
+                boxShadow: 'inset -8px -8px 10px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.25)',
+                borderRadius: 8,
+                zIndex: obstacle.y > playerPosition.y ? 4 : 3,
+              }}
+            />
+          );
+        })}
 
         {/* Ambient particles */}
         {[...Array(8)].map((_, i) => (
@@ -892,7 +1003,7 @@ export function CombatArena({
 
         <Character
           type="player"
-          position={{ x: PLAYER_ARENA_POSITION.x, y: PLAYER_ARENA_POSITION.y }}
+          position={worldToScreen(playerPosition.x, playerPosition.y)}
           size={55}
           color={{ primary: '#22c55e', secondary: '#15803d', glow: 'rgba(34, 197, 94, 0.5)' }}
           currentHp={player.currentLife}
@@ -903,26 +1014,27 @@ export function CombatArena({
           level={player.level}
         />
 
-        {monsters.map(monster => {
+        {onScreenMonsters.map(monster => {
           const pos = getMonsterPosition(monster);
+          const screenPos = worldToScreen(pos.x, pos.y);
           const color = RARITY_COLORS[monster.rarity] || RARITY_COLORS.normal;
           const size = monster.rarity === 'boss' ? 75 : 48;
-          const inRange = isInMeleeRange(monster);
-          const currentTarget = getBestTarget(monsters);
-          const isTargeted = currentTarget?.id === monster.id;
+          const inRange = isInMeleeRange(monster, playerPosition);
+          const isAdvancing = monster.rarity === 'boss' || monster.aggroState === 'alerted' || monster.aggroState === 'engaged';
+          const isTargeted = visibleTarget?.id === monster.id;
 
           return (
             <Character
               key={monster.id}
               type="monster"
-              position={{ x: pos.x, y: pos.y }}
+              position={screenPos}
               size={size}
               color={color}
               currentHp={monster.currentLife}
               maxHp={monster.maxLife}
               isAttacking={attackingMonsters.has(monster.id)}
               isDying={dyingMonsters.has(monster.id)}
-              isWalking={!inRange}
+              isWalking={!inRange && isAdvancing}
               isTargeted={isTargeted}
               name={monster.name}
               level={monster.level}
@@ -934,14 +1046,24 @@ export function CombatArena({
         })}
 
         {/* Damage numbers */}
-        {damageNumbers.map(dmg => (
-          <FloatingDamage key={dmg.id} damage={dmg} />
-        ))}
+        {damageNumbers.map(dmg => {
+          if (!isWorldPointVisible(dmg.position.x, dmg.position.y, 3)) {
+            return null;
+          }
+
+          const screenPos = worldToScreen(dmg.position.x, dmg.position.y);
+          return <FloatingDamage key={dmg.id} damage={{ ...dmg, position: screenPos }} />;
+        })}
 
         {/* Loot drops */}
-        {lootDrops.map(loot => (
-          <LootDropAnimation key={loot.id} loot={loot} />
-        ))}
+        {lootDrops.map(loot => {
+          if (!isWorldPointVisible(loot.position.x, loot.position.y, 3)) {
+            return null;
+          }
+
+          const screenPos = worldToScreen(loot.position.x, loot.position.y);
+          return <LootDropAnimation key={loot.id} loot={{ ...loot, position: screenPos }} />;
+        })}
       </div>
 
       {/* Stats bar */}
@@ -957,12 +1079,18 @@ export function CombatArena({
           </div>
           <div className="text-gray-400 flex gap-3">
             {(() => {
-              const inMelee = monsters.filter(m => isInMeleeRange(m));
-              const approaching = monsters.filter(m => !isInMeleeRange(m));
-              const target = getBestTarget(monsters);
+              const inMelee = onScreenMonsters.filter(m => isInMeleeRange(m, playerPosition));
+              const approaching = onScreenMonsters.filter(m => !isInMeleeRange(m, playerPosition));
+              const offScreenCount = Math.max(0, monsters.length - onScreenMonsters.length);
+              const target = getBestTarget(onScreenMonsters, playerPosition);
 
               return (
                 <>
+                  {offScreenCount > 0 && (
+                    <span>
+                      🧭 <span className="text-gray-300">{offScreenCount}</span> off-screen
+                    </span>
+                  )}
                   {inMelee.length > 0 && (
                     <span>
                       ⚔️ <span className="text-red-400">{inMelee.length}</span> fighting

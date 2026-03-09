@@ -8,7 +8,7 @@ export const bootsPrefixes: AffixDefinition[] = [
     statKey: 'increasedMovementSpeed',
     isPercentage: true,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 6, minValue: 10, maxValue: 10, requiredItemLevel: 1 },
       { tier: 5, minValue: 15, maxValue: 15, requiredItemLevel: 15 },
@@ -64,7 +64,7 @@ export const bootsPrefixes: AffixDefinition[] = [
     statKey: 'maxLife',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 9, minValue: 3, maxValue: 9, requiredItemLevel: 1 },
       { tier: 8, minValue: 10, maxValue: 24, requiredItemLevel: 5 },
@@ -124,7 +124,7 @@ export const bootsPrefixes: AffixDefinition[] = [
     secondaryStatKey: 'maxLife',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsDexterity', 'bootsStrengthDexterity'],
+    requiredBaseTagsAny: ['bootsDexterity', 'bootsStrengthDexterity', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 2, minValue: 14, maxValue: 20, secondaryMinValue: 18, secondaryMaxValue: 23, requiredItemLevel: 30 },
       { tier: 1, minValue: 21, maxValue: 42, secondaryMinValue: 24, secondaryMaxValue: 28, requiredItemLevel: 46 },
@@ -171,13 +171,51 @@ export const bootsPrefixes: AffixDefinition[] = [
   },
 
   {
+    id: 'bootsDexIntFlatEvasionAndEnergyShield',
+    name: 'Evasion and Energy Shield',
+    type: 'prefix',
+    statKey: 'evasion',
+    secondaryStatKey: 'energyShield',
+    isPercentage: false,
+    applicableSlots: ['boots'],
+    requiredBaseTagsAny: ['bootsDexterityIntelligence'],
+    tiers: [
+      { tier: 4, minValue: 5, maxValue: 9, secondaryMinValue: 3, secondaryMaxValue: 4, requiredItemLevel: 1 },
+      { tier: 3, minValue: 10, maxValue: 27, secondaryMinValue: 5, secondaryMaxValue: 12, requiredItemLevel: 18 },
+      { tier: 2, minValue: 28, maxValue: 48, secondaryMinValue: 13, secondaryMaxValue: 22, requiredItemLevel: 30 },
+      { tier: 1, minValue: 49, maxValue: 85, secondaryMinValue: 23, secondaryMaxValue: 28, requiredItemLevel: 38 },
+    ],
+  },
+
+  {
+    id: 'bootsDexIntIncEvasionAndEnergyShield',
+    name: 'Increased Evasion and Energy Shield',
+    type: 'prefix',
+    statKey: 'increasedEvasion',
+    secondaryStatKey: 'increasedEnergyShield',
+    usePrimaryValueForSecondary: true,
+    isPercentage: true,
+    applicableSlots: ['boots'],
+    requiredBaseTagsAny: ['bootsDexterityIntelligence'],
+    tiers: [
+      { tier: 7, minValue: 15, maxValue: 26, secondaryMinValue: 15, secondaryMaxValue: 26, requiredItemLevel: 3 },
+      { tier: 6, minValue: 27, maxValue: 42, secondaryMinValue: 27, secondaryMaxValue: 42, requiredItemLevel: 19 },
+      { tier: 5, minValue: 43, maxValue: 55, secondaryMinValue: 43, secondaryMaxValue: 55, requiredItemLevel: 30 },
+      { tier: 4, minValue: 56, maxValue: 67, secondaryMinValue: 56, secondaryMaxValue: 67, requiredItemLevel: 44 },
+      { tier: 3, minValue: 68, maxValue: 79, secondaryMinValue: 68, secondaryMaxValue: 79, requiredItemLevel: 60 },
+      { tier: 2, minValue: 80, maxValue: 91, secondaryMinValue: 80, secondaryMaxValue: 91, requiredItemLevel: 72 },
+      { tier: 1, minValue: 92, maxValue: 100, secondaryMinValue: 92, secondaryMaxValue: 100, requiredItemLevel: 84 },
+    ],
+  },
+
+  {
     id: 'bootsIntFlatMana',
     name: 'Maximum Mana',
     type: 'prefix',
     statKey: 'maxMana',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 12, minValue: 15, maxValue: 19, requiredItemLevel: 1 },
       { tier: 11, minValue: 20, maxValue: 24, requiredItemLevel: 11 },
@@ -278,7 +316,7 @@ export const bootsPrefixes: AffixDefinition[] = [
     secondaryStatKey: 'maxLife',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 2, minValue: 8, maxValue: 10, secondaryMinValue: 18, secondaryMaxValue: 23, requiredItemLevel: 30 },
       { tier: 1, minValue: 11, maxValue: 15, secondaryMinValue: 24, secondaryMaxValue: 28, requiredItemLevel: 46 },
@@ -293,7 +331,7 @@ export const bootsPrefixes: AffixDefinition[] = [
     secondaryStatKey: 'maxMana',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 2, minValue: 8, maxValue: 10, secondaryMinValue: 11, secondaryMaxValue: 15, requiredItemLevel: 30 },
       { tier: 1, minValue: 11, maxValue: 15, secondaryMinValue: 16, secondaryMaxValue: 19, requiredItemLevel: 46 },
@@ -324,7 +362,7 @@ export const bootsSuffixes: AffixDefinition[] = [
     statKey: 'lifeRegeneration',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 8, minValue: 1, maxValue: 2, requiredItemLevel: 1 },
       { tier: 7, minValue: 2.1, maxValue: 8, requiredItemLevel: 7 },
@@ -344,7 +382,7 @@ export const bootsSuffixes: AffixDefinition[] = [
     statKey: 'lightningResistance',
     isPercentage: true,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 8, minValue: 6, maxValue: 11, requiredItemLevel: 1 },
       { tier: 7, minValue: 12, maxValue: 17, requiredItemLevel: 13 },
@@ -364,7 +402,7 @@ export const bootsSuffixes: AffixDefinition[] = [
     statKey: 'coldResistance',
     isPercentage: true,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 8, minValue: 6, maxValue: 11, requiredItemLevel: 1 },
       { tier: 7, minValue: 12, maxValue: 17, requiredItemLevel: 14 },
@@ -405,7 +443,7 @@ export const bootsSuffixes: AffixDefinition[] = [
     statKey: 'dexterity',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsDexterity', 'bootsStrengthDexterity'],
+    requiredBaseTagsAny: ['bootsDexterity', 'bootsStrengthDexterity', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 9, minValue: 8, maxValue: 12, requiredItemLevel: 1 },
       { tier: 8, minValue: 13, maxValue: 17, requiredItemLevel: 11 },
@@ -426,7 +464,7 @@ export const bootsSuffixes: AffixDefinition[] = [
     statKey: 'intelligence',
     isPercentage: false,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsIntelligence', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 9, minValue: 8, maxValue: 12, requiredItemLevel: 1 },
       { tier: 8, minValue: 13, maxValue: 17, requiredItemLevel: 11 },
@@ -447,7 +485,7 @@ export const bootsSuffixes: AffixDefinition[] = [
     statKey: 'chaosResistance',
     isPercentage: true,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 6, minValue: 5, maxValue: 10, requiredItemLevel: 16 },
       { tier: 5, minValue: 11, maxValue: 15, requiredItemLevel: 30 },
@@ -465,7 +503,7 @@ export const bootsSuffixes: AffixDefinition[] = [
     statKey: 'fireResistance',
     isPercentage: true,
     applicableSlots: ['boots'],
-    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence'],
+    requiredBaseTagsAny: ['bootsStrength', 'bootsDexterity', 'bootsIntelligence', 'bootsStrengthDexterity', 'bootsStrengthIntelligence', 'bootsDexterityIntelligence'],
     tiers: [
       { tier: 8, minValue: 6, maxValue: 11, requiredItemLevel: 1 },
       { tier: 7, minValue: 12, maxValue: 17, requiredItemLevel: 12 },

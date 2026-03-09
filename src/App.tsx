@@ -1,6 +1,6 @@
 import { useGameLoop } from './hooks/useGameLoop';
 import { useGameStore } from './stores/gameStore';
-import { TownScreen, WorldMapScreen, CombatScreen, CharacterScreen, SkillTrainerScreen, MonsterImporterScreen } from './screens';
+import { TownScreen, WorldMapScreen, CombatScreen, CharacterScreen, SkillTrainerScreen, CraftingScreen, MonsterImporterScreen } from './screens';
 import { CombatMiniPanel } from './components';
 import './App.css';
 
@@ -21,6 +21,8 @@ function App() {
         return <CharacterScreen />;
       case 'skillTrainer':
         return <SkillTrainerScreen />;
+      case 'crafting':
+        return <CraftingScreen />;
       case 'monsterImporter':
         return <MonsterImporterScreen />;
       default:

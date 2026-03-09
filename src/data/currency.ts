@@ -31,6 +31,13 @@ export const currencies: CurrencyDefinition[] = [
     color: '#3b82f6',
   },
   {
+    id: 'regal',
+    name: 'Regal Orb',
+    description: 'Upgrades a magic item to a rare item',
+    dropWeight: 3,
+    color: '#facc15',
+  },
+  {
     id: 'alchemy',
     name: 'Orb of Alchemy',
     description: 'Upgrades a normal item to a rare item',

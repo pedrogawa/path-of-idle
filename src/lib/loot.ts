@@ -66,21 +66,25 @@ function rollAffix(
   existingAffixIds: string[]
 ): Affix | null {
   const baseTags = base.baseTags ?? [];
-  const applicable = allAffixes.filter(a => 
-    a.type === type && 
-    a.applicableSlots.includes(slot) &&
-    (!a.requiredBaseTagsAny || a.requiredBaseTagsAny.some(tag => baseTags.includes(tag))) &&
-    !existingAffixIds.includes(a.id)
-  );
-  
+  const applicable = allAffixes.flatMap(affixDef => {
+    if (
+      affixDef.type !== type ||
+      !affixDef.applicableSlots.includes(slot) ||
+      (affixDef.requiredBaseTagsAny && !affixDef.requiredBaseTagsAny.some(tag => baseTags.includes(tag))) ||
+      existingAffixIds.includes(affixDef.id)
+    ) {
+      return [];
+    }
+
+    const availableTiers = affixDef.tiers.filter(t => t.requiredItemLevel <= itemLevel);
+    if (availableTiers.length === 0) return [];
+
+    return [{ affixDef, tier: availableTiers[availableTiers.length - 1] }];
+  });
+
   if (applicable.length === 0) return null;
-  
-  const affixDef = applicable[Math.floor(Math.random() * applicable.length)];
-  
-  const availableTiers = affixDef.tiers.filter(t => t.requiredItemLevel <= itemLevel);
-  if (availableTiers.length === 0) return null;
-  
-  const tier = availableTiers[availableTiers.length - 1];
+
+  const { affixDef, tier } = applicable[Math.floor(Math.random() * applicable.length)];
   
   const value = rollTierValue(tier.minValue, tier.maxValue);
   const secondaryValue = affixDef.secondaryStatKey
@@ -114,7 +118,7 @@ function rollAffix(
   };
 }
 
-function rollAffixesForRarity(
+export function rollAffixesForRarity(
   rarity: ItemRarity,
   base: ItemBase,
   slot: EquipmentSlot,
@@ -180,6 +184,34 @@ function rollAffixesForRarity(
   }
 
   return { prefixes, suffixes };
+}
+
+export function rollAdditionalAffix(
+  base: ItemBase,
+  slot: EquipmentSlot,
+  itemLevel: number,
+  existingAffixIds: string[],
+  existingPrefixCount: number,
+  existingSuffixCount: number,
+): { type: 'prefix' | 'suffix'; affix: Affix } | null {
+  const canRollPrefix = existingPrefixCount < 3;
+  const canRollSuffix = existingSuffixCount < 3;
+  if (!canRollPrefix && !canRollSuffix) return null;
+
+  const firstType: 'prefix' | 'suffix' = canRollPrefix && canRollSuffix
+    ? (Math.random() < 0.5 ? 'prefix' : 'suffix')
+    : (canRollPrefix ? 'prefix' : 'suffix');
+  const secondType: 'prefix' | 'suffix' = firstType === 'prefix' ? 'suffix' : 'prefix';
+
+  const firstRoll = rollAffix(firstType, base, slot, itemLevel, existingAffixIds);
+  if (firstRoll) return { type: firstType, affix: firstRoll };
+
+  const canTrySecond = secondType === 'prefix' ? canRollPrefix : canRollSuffix;
+  if (!canTrySecond) return null;
+  const secondRoll = rollAffix(secondType, base, slot, itemLevel, existingAffixIds);
+  if (secondRoll) return { type: secondType, affix: secondRoll };
+
+  return null;
 }
 
 /**

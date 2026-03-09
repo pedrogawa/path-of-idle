@@ -21,9 +21,24 @@ import {
 } from '../lib/combat';
 import { canGemLevelUp, getGemNextLevelTotalExperience, getGemRequiredCharacterLevelForLevel } from '../lib/gems';
 import { getSkillRuntimeStats } from '../lib/skills';
-import { generateLoot } from '../lib/loot';
-import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, getDistanceToPlayer, isInMeleeRange, stepMonsterTowardsPlayer } from '../lib/monsters';
-import { mapById, maps, bossById, skillById, starterSkillIds, getBuyableSkills, getSkillPurchaseCost, supportGemById } from '../data';
+import { computeItemStats, generateLoot, rollAdditionalAffix, rollAffixesForRarity } from '../lib/loot';
+import {
+  MONSTER_ALERT_RANGE,
+  MONSTER_DISENGAGE_RANGE,
+  MONSTER_ENGAGE_RANGE,
+  MELEE_RANGE,
+  PLAYER_ARENA_POSITION,
+  getBestTarget,
+  getDistanceToPlayer,
+  hasLineOfSightToPlayer,
+  isInMeleeRange,
+  spawnBoss,
+  spawnMapEncounterWave,
+  stepPlayerTowardsTarget,
+  stepPlayerPosition,
+  stepMonsterTowardsPlayer,
+} from '../lib/monsters';
+import { mapById, maps, bossById, skillById, starterSkillIds, getBuyableSkills, getSkillPurchaseCost, supportGemById, itemBaseById } from '../data';
 
 let logIdCounter = 0;
 const generateLogId = () => `log_${Date.now()}_${logIdCounter++}`;
@@ -32,10 +47,18 @@ const generateSupportGemInstanceId = () => `support_${Date.now()}_${supportGemIn
 
 const DEFAULT_SPAWN_INTERVAL = 3;
 const MAX_MONSTERS = 5;
+const ENCOUNTER_PACK_MIN = 3;
+const ENCOUNTER_PACK_MAX = 5;
 const FLASK_AUTO_USE_THRESHOLD = 0.5;
 const MAX_SUPPORT_SOCKETS = 5;
 const BLEED_DURATION_SECONDS = 5;
 const BLEED_TOTAL_DAMAGE_PERCENT_OF_PHYSICAL_HIT = 70;
+
+function rollEncounterPackSize(remainingKills: number): number {
+  if (remainingKills <= 0) return 0;
+  const rolled = ENCOUNTER_PACK_MIN + Math.floor(Math.random() * (ENCOUNTER_PACK_MAX - ENCOUNTER_PACK_MIN + 1));
+  return Math.min(remainingKills, rolled);
+}
 
 function createPlayerSkill(definitionId: string): PlayerSkill {
   return {
@@ -102,6 +125,7 @@ function createInitialPlayer(): Player {
     transmutation: 5,
     alteration: 5,
     augmentation: 2,
+    regal: 0,
     alchemy: 1,
     chaos: 0,
     exalted: 0,
@@ -149,6 +173,10 @@ function createInitialGameState(): GameState {
     currentScreen: 'town',
     currentMapId: null,
     combatState: 'idle',
+    playerArenaX: PLAYER_ARENA_POSITION.x,
+    playerArenaY: PLAYER_ARENA_POSITION.y,
+    playerMoveDirectionX: 0,
+    playerMoveDirectionY: 0,
     monsters: [],
     isBossFight: false,
     bossReady: false, // Boss is ready to be challenged
@@ -177,6 +205,7 @@ interface GameStore extends GameState {
   navigateTo: (screen: GameScreen) => void;
   selectMap: (mapId: string) => void;
   stopFarming: () => void;
+  setPlayerMoveDirection: (x: number, y: number) => void;
   buySkill: (skillId: string) => void;
   removeEquippedSkill: (slotIndex: number) => void;
   equipInactiveSkill: (inactiveIndex: number) => void;
@@ -192,6 +221,9 @@ interface GameStore extends GameState {
   gameTick: (deltaTime: number) => void;
   startBossFight: () => void;
   toggleAutoBossSpawn: () => void;
+  craftWithTransmutation: (itemId: string) => void;
+  craftWithAlteration: (itemId: string) => void;
+  craftWithAugmentation: (itemId: string) => void;
   equipItem: (itemId: string, slot?: EquipmentSlot) => void;
   unequipItem: (slot: EquipmentSlot) => void;
   sellItem: (itemId: string) => void;
@@ -208,6 +240,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Only stopFarming() explicitly stops combat
     set({ currentScreen: screen });
   },
+
+  setPlayerMoveDirection: (x: number, y: number) => {
+    set({
+      playerMoveDirectionX: x,
+      playerMoveDirectionY: y,
+    });
+  },
   
   selectMap: (mapId: string) => {
     const state = get();
@@ -215,36 +254,51 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     const map = mapById.get(mapId);
     if (!map) return;
-    
-    if (!state.mapProgress[mapId]) {
+
+    const existingProgress = state.mapProgress[mapId];
+    const progress = existingProgress ?? {
+      mapId,
+      killCount: 0,
+      bossDefeated: false,
+      timesCleared: 0,
+      autoBossSpawn: false,
+    };
+
+    if (!existingProgress) {
       set({
         mapProgress: {
           ...state.mapProgress,
-          [mapId]: {
-            mapId,
-            killCount: 0,
-            bossDefeated: false,
-            timesCleared: 0,
-            autoBossSpawn: false,
-          },
+          [mapId]: progress,
         },
       });
     }
-    
-    const monster = spawnMapMonster(mapId, 0);
+
+    const remainingKills = Math.max(0, map.killsRequired - progress.killCount);
+    const bossReady = remainingKills === 0 && !progress.bossDefeated;
+    const initialPackSize = bossReady ? 0 : rollEncounterPackSize(remainingKills);
+    const monsters = initialPackSize > 0 ? spawnMapEncounterWave(mapId, initialPackSize) : [];
+    const packCount = new Set(monsters.map(monster => monster.packId)).size;
     
     set({
       currentScreen: 'combat',
       currentMapId: mapId,
       combatState: 'fighting',
-      monsters: monster ? [monster] : [],
+      playerArenaX: PLAYER_ARENA_POSITION.x,
+      playerArenaY: PLAYER_ARENA_POSITION.y,
+      playerMoveDirectionX: 0,
+      playerMoveDirectionY: 0,
+      monsters,
       isBossFight: false,
-      bossReady: false,
-      spawnTimer: DEFAULT_SPAWN_INTERVAL,
+      bossReady,
+      spawnTimer: state.spawnInterval,
       playerAttackCooldown: 0,
     });
-    
-    get().addLog('playerHit', `Entered ${map.name}`);
+
+    if (bossReady) {
+      get().addLog('monsterDeath', `⚠️ BOSS READY! Click "Challenge Boss" when ready!`);
+    } else {
+      get().addLog('playerHit', `Entered ${map.name} • ${packCount} pack (${monsters.length} monsters)`);
+    }
   },
   
   stopFarming: () => {
@@ -252,6 +306,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentScreen: 'town',
       currentMapId: null,
       combatState: 'idle',
+      playerArenaX: PLAYER_ARENA_POSITION.x,
+      playerArenaY: PLAYER_ARENA_POSITION.y,
+      playerMoveDirectionX: 0,
+      playerMoveDirectionY: 0,
       monsters: [],
       isBossFight: false,
       bossReady: false,
@@ -748,6 +806,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     let monsters = state.monsters.map(m => ({ ...m }));
     let player = { ...state.player };
+    let playerArenaX = state.playerArenaX;
+    let playerArenaY = state.playerArenaY;
     const mapProgress = { ...state.mapProgress[state.currentMapId] };
     let unlockedMapIds = [...state.unlockedMapIds];
     let spawnTimer = state.spawnTimer;
@@ -755,14 +815,45 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let bossReady = state.bossReady;
     
     const playerStats = computePlayerStats(player);
+    let playerPosition = { x: playerArenaX, y: playerArenaY };
+    const manualMoveMagnitude = Math.hypot(state.playerMoveDirectionX, state.playerMoveDirectionY);
+    if (manualMoveMagnitude > 0.001) {
+      playerPosition = stepPlayerPosition(
+        playerPosition,
+        state.currentMapId,
+        deltaTime,
+        state.playerMoveDirectionX,
+        state.playerMoveDirectionY,
+      );
+    } else {
+      const aliveMonstersForPathing = monsters.filter(monster => monster.currentLife > 0);
+      const nearestMonster = aliveMonstersForPathing.reduce<typeof aliveMonstersForPathing[number] | null>((closest, monster) => {
+        if (!closest) return monster;
+        return getDistanceToPlayer(monster, playerPosition) < getDistanceToPlayer(closest, playerPosition) ? monster : closest;
+      }, null);
+
+      if (nearestMonster) {
+        const nearestDistance = getDistanceToPlayer(nearestMonster, playerPosition);
+        if (nearestDistance > MELEE_RANGE * 0.85) {
+          playerPosition = stepPlayerTowardsTarget(
+            playerPosition,
+            { x: nearestMonster.arenaX, y: nearestMonster.arenaY },
+            state.currentMapId,
+            deltaTime,
+          );
+        }
+      }
+    }
+
+    playerArenaX = playerPosition.x;
+    playerArenaY = playerPosition.y;
     
     // ============================================
-    // SPAWN NEW MONSTERS
+    // ENCOUNTER / BOSS STATE
     // ============================================
-    
-    spawnTimer -= deltaTime;
-    
-    const shouldForceSpawn = monsters.length === 0 && !isBossFight && !bossReady;
+
+    spawnTimer = Math.max(0, spawnTimer - deltaTime);
+
     const bossConditionMet = mapProgress.killCount >= map.killsRequired && !mapProgress.bossDefeated && !isBossFight;
     
     if (bossConditionMet && !bossReady) {
@@ -779,22 +870,98 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
       }
     }
-    
-    if (!isBossFight && monsters.length < state.maxMonsters && (spawnTimer <= 0 || shouldForceSpawn)) {
-      const positionIndex = getNextPositionIndex(monsters);
-      const newMonster = spawnMapMonster(state.currentMapId, positionIndex);
-      if (newMonster) {
-        monsters = [...monsters, newMonster];
-      }
-      
-      spawnTimer = state.spawnInterval;
+    // ============================================
+    // MONSTER AGGRO (idle -> alerted -> engaged)
+    // ============================================
+
+    if (!isBossFight) {
+      const engagedPackIds = new Set<string>();
+      const alertedPackIds = new Set<string>();
+
+      monsters = monsters.map(monster => {
+        if (monster.currentLife <= 0) {
+          return monster;
+        }
+
+        if (monster.rarity === 'boss') {
+          return {
+            ...monster,
+            aggroState: 'engaged',
+            distance: getDistanceToPlayer(monster, playerPosition),
+          };
+        }
+
+        const distance = getDistanceToPlayer(monster, playerPosition);
+        const seesPlayer = distance <= MONSTER_ALERT_RANGE
+          && hasLineOfSightToPlayer(monster, state.currentMapId!, playerPosition);
+        const currentAggro = monster.aggroState ?? 'idle';
+        let nextAggro = currentAggro;
+
+        if (currentAggro === 'idle') {
+          if (seesPlayer) {
+            nextAggro = 'alerted';
+          }
+        } else if (currentAggro === 'alerted') {
+          if (seesPlayer && distance <= MONSTER_ENGAGE_RANGE) {
+            nextAggro = 'engaged';
+          } else if (!seesPlayer && distance > MONSTER_DISENGAGE_RANGE) {
+            nextAggro = 'idle';
+          }
+        } else if (!seesPlayer && distance > MONSTER_DISENGAGE_RANGE) {
+          nextAggro = 'alerted';
+        }
+
+        if (nextAggro === 'engaged') {
+          engagedPackIds.add(monster.packId);
+        } else if (nextAggro === 'alerted') {
+          alertedPackIds.add(monster.packId);
+        }
+
+        return {
+          ...monster,
+          aggroState: nextAggro,
+          distance,
+        };
+      });
+
+      monsters = monsters.map(monster => {
+        if (monster.currentLife <= 0 || monster.rarity === 'boss') {
+          return monster;
+        }
+
+        if (engagedPackIds.has(monster.packId) && monster.aggroState !== 'engaged') {
+          return { ...monster, aggroState: 'engaged' };
+        }
+
+        if (!engagedPackIds.has(monster.packId) && alertedPackIds.has(monster.packId) && monster.aggroState === 'idle') {
+          return { ...monster, aggroState: 'alerted' };
+        }
+
+        return monster;
+      });
     }
     
     // ============================================
     // MONSTER MOVEMENT - 2D movement with simple obstacle-aware pathing
     // ============================================
-    
-    monsters = monsters.map(monster => stepMonsterTowardsPlayer(monster, state.currentMapId!, deltaTime));
+
+    monsters = monsters.map(monster => {
+      if (monster.currentLife <= 0) {
+        return monster;
+      }
+
+      const aggroState = monster.aggroState ?? (monster.rarity === 'boss' ? 'engaged' : 'idle');
+      const canAdvance = monster.rarity === 'boss' || aggroState === 'alerted' || aggroState === 'engaged';
+
+      if (!canAdvance) {
+        return {
+          ...monster,
+          distance: getDistanceToPlayer(monster, playerPosition),
+        };
+      }
+
+      return stepMonsterTowardsPlayer(monster, state.currentMapId!, deltaTime, playerPosition);
+    });
     
     // ============================================
     // COMBAT - Discrete attack system (integer damage)
@@ -804,17 +971,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let totalMonsterDamage = 0;
     
     const aliveMonsters = monsters.filter(m => m.currentLife > 0);
-    const monstersInRange = aliveMonsters.filter(m => isInMeleeRange(m));
+    const combatCandidates = aliveMonsters.filter(monster => monster.rarity === 'boss' || monster.aggroState === 'engaged');
+    const monstersInRange = combatCandidates.filter(m => isInMeleeRange(m, playerPosition));
     const forcedEngagedMonster = monstersInRange.length === 0
-      ? aliveMonsters.reduce<typeof aliveMonsters[number] | null>((closest, monster) => {
-        if (!closest) return monster;
-        return getDistanceToPlayer(monster) < getDistanceToPlayer(closest) ? monster : closest;
-      }, null)
+      ? combatCandidates
+        .filter(monster => getDistanceToPlayer(monster, playerPosition) <= MELEE_RANGE + 2)
+        .reduce<typeof combatCandidates[number] | null>((closest, monster) => {
+          if (!closest) return monster;
+          return getDistanceToPlayer(monster, playerPosition) < getDistanceToPlayer(closest, playerPosition) ? monster : closest;
+        }, null)
       : null;
     const engagedMonsters = forcedEngagedMonster ? [forcedEngagedMonster] : monstersInRange;
 
     // Prefer normal in-range targeting, but force nearest monster if pathing deadlocks.
-    const targetMonster = getBestTarget(monsters) ?? forcedEngagedMonster;
+    const targetMonster = getBestTarget(combatCandidates, playerPosition) ?? forcedEngagedMonster;
     
     // ========== UPDATE SKILL COOLDOWNS ==========
     const updatedSkills = player.skills.map(skill => {
@@ -830,6 +1000,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let playerAttackCooldown = state.playerAttackCooldown - deltaTime;
     const skillDamageMap: Map<string, number> = new Map(); // monster id -> damage
     const pendingBleeds: Map<string, { dps: number; duration: number }> = new Map();
+    const damagedPackIds = new Set<string>();
     let lifestealAmount = 0;
     
     if (targetMonster && playerAttackCooldown <= 0) {
@@ -972,11 +1143,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     monsters = monsters.map(m => {
       const updatedMonster = { ...m };
-      const inRange = isInMeleeRange(updatedMonster);
+      const inRange = isInMeleeRange(updatedMonster, playerPosition);
       
       const damageToThisMonster = skillDamageMap.get(updatedMonster.id) || 0;
       if (damageToThisMonster > 0) {
         updatedMonster.currentLife -= damageToThisMonster;
+        if (updatedMonster.rarity !== 'boss') {
+          updatedMonster.aggroState = 'engaged';
+          damagedPackIds.add(updatedMonster.packId);
+        }
       }
 
       const pendingBleed = pendingBleeds.get(updatedMonster.id);
@@ -997,7 +1172,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
       }
       
-      if (updatedMonster.currentLife > 0 && inRange) {
+      const canAttack = inRange && (updatedMonster.rarity === 'boss' || updatedMonster.aggroState === 'engaged');
+      if (updatedMonster.currentLife > 0 && canAttack) {
         updatedMonster.attackCooldown = Math.max(0, updatedMonster.attackCooldown - deltaTime);
         
         if (updatedMonster.attackCooldown <= 0) {
@@ -1055,6 +1231,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
       
       return updatedMonster;
     });
+
+    if (damagedPackIds.size > 0) {
+      monsters = monsters.map(monster => {
+        if (monster.currentLife <= 0 || monster.rarity === 'boss') {
+          return monster;
+        }
+        if (damagedPackIds.has(monster.packId) && monster.aggroState !== 'engaged') {
+          return { ...monster, aggroState: 'engaged' };
+        }
+        return monster;
+      });
+    }
     
     // Apply total monster damage as integer
     if (totalMonsterDamage > 0) {
@@ -1228,6 +1416,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
     
     monsters = monsters.filter(m => !deadMonsterIds.includes(m.id));
+
+    // ============================================
+    // PACK SPAWNING - one sparse pack at a time
+    // ============================================
+
+    if (!isBossFight && !bossReady) {
+      const remainingKills = Math.max(0, map.killsRequired - mapProgress.killCount);
+
+      if (remainingKills > 0) {
+        if (monsters.length > 0) {
+          // Keep timer primed while the current encounter is still active.
+          spawnTimer = state.spawnInterval;
+        } else if (spawnTimer <= 0) {
+          const packSize = rollEncounterPackSize(remainingKills);
+          if (packSize > 0) {
+            monsters = spawnMapEncounterWave(state.currentMapId, packSize);
+            get().addLog('playerHit', `A nearby pack emerges (${monsters.length} monsters).`);
+          }
+          spawnTimer = state.spawnInterval;
+        }
+      }
+    }
     
     // ============================================
     // CHECK IF PLAYER DIED
@@ -1249,6 +1459,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         player,
         combatState: 'idle',
         currentMapId: null,
+        playerArenaX: PLAYER_ARENA_POSITION.x,
+        playerArenaY: PLAYER_ARENA_POSITION.y,
+        playerMoveDirectionX: 0,
+        playerMoveDirectionY: 0,
         monsters: [],
         isBossFight: false,
         bossReady: false,
@@ -1265,6 +1479,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     
     set({
       player,
+      playerArenaX,
+      playerArenaY,
       monsters,
       isBossFight,
       bossReady,
@@ -1277,6 +1493,193 @@ export const useGameStore = create<GameStore>((set, get) => ({
       unlockedMapIds,
       totalPlayTime: state.totalPlayTime + deltaTime,
     });
+  },
+
+  craftWithTransmutation: (itemId: string) => {
+    const state = get();
+    const itemIndex = state.player.inventory.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) return;
+
+    const item = state.player.inventory[itemIndex];
+    if (item.rarity !== 'normal') {
+      get().addLog('playerHit', 'Transmutation only works on normal items.');
+      return;
+    }
+
+    if (state.player.currency.transmutation < 1) {
+      get().addLog('playerHit', 'Need an Orb of Transmutation.');
+      return;
+    }
+
+    const base = itemBaseById.get(item.baseId);
+    if (!base) {
+      get().addLog('playerHit', 'Cannot craft this item right now.');
+      return;
+    }
+
+    const { prefixes, suffixes } = rollAffixesForRarity('magic', base, item.slot, item.itemLevel);
+    const affixCount = prefixes.length + suffixes.length;
+    if (affixCount === 0) {
+      get().addLog('playerHit', `No eligible affixes for iLvl ${item.itemLevel}.`);
+      return;
+    }
+
+    const baseStats = item.rolledBaseStats ?? base.baseStats;
+    const craftedItem = {
+      ...item,
+      rarity: 'magic' as const,
+      prefixes,
+      suffixes,
+      stats: computeItemStats(baseStats, prefixes, suffixes),
+    };
+
+    const updatedInventory = [...state.player.inventory];
+    updatedInventory[itemIndex] = craftedItem;
+
+    set({
+      player: {
+        ...state.player,
+        inventory: updatedInventory,
+        currency: {
+          ...state.player.currency,
+          transmutation: state.player.currency.transmutation - 1,
+        },
+      },
+    });
+
+    get().addLog('loot', `🔵 Transmuted ${item.name}: rolled ${affixCount} modifier${affixCount === 1 ? '' : 's'}.`);
+  },
+
+  craftWithAlteration: (itemId: string) => {
+    const state = get();
+    const itemIndex = state.player.inventory.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) return;
+
+    const item = state.player.inventory[itemIndex];
+    if (item.rarity !== 'magic') {
+      get().addLog('playerHit', 'Alteration only works on magic items.');
+      return;
+    }
+
+    if (state.player.currency.alteration < 1) {
+      get().addLog('playerHit', 'Need an Orb of Alteration.');
+      return;
+    }
+
+    const base = itemBaseById.get(item.baseId);
+    if (!base) {
+      get().addLog('playerHit', 'Cannot craft this item right now.');
+      return;
+    }
+
+    const { prefixes, suffixes } = rollAffixesForRarity('magic', base, item.slot, item.itemLevel);
+    const affixCount = prefixes.length + suffixes.length;
+    if (affixCount === 0) {
+      get().addLog('playerHit', `No eligible affixes for iLvl ${item.itemLevel}.`);
+      return;
+    }
+
+    const baseStats = item.rolledBaseStats ?? base.baseStats;
+    const craftedItem = {
+      ...item,
+      prefixes,
+      suffixes,
+      stats: computeItemStats(baseStats, prefixes, suffixes),
+    };
+
+    const updatedInventory = [...state.player.inventory];
+    updatedInventory[itemIndex] = craftedItem;
+
+    set({
+      player: {
+        ...state.player,
+        inventory: updatedInventory,
+        currency: {
+          ...state.player.currency,
+          alteration: state.player.currency.alteration - 1,
+        },
+      },
+    });
+
+    get().addLog('loot', `🔁 Altered ${item.name}: rerolled ${affixCount} modifier${affixCount === 1 ? '' : 's'} (iLvl ${item.itemLevel} pool).`);
+  },
+
+  craftWithAugmentation: (itemId: string) => {
+    const state = get();
+    const itemIndex = state.player.inventory.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) return;
+
+    const item = state.player.inventory[itemIndex];
+    if (item.rarity !== 'magic') {
+      get().addLog('playerHit', 'Augmentation only works on magic items.');
+      return;
+    }
+
+    const currentAffixCount = item.prefixes.length + item.suffixes.length;
+    if (currentAffixCount !== 1) {
+      get().addLog('playerHit', 'Augmentation requires a magic item with exactly 1 modifier.');
+      return;
+    }
+
+    if (state.player.currency.augmentation < 1) {
+      get().addLog('playerHit', 'Need an Orb of Augmentation.');
+      return;
+    }
+
+    const base = itemBaseById.get(item.baseId);
+    if (!base) {
+      get().addLog('playerHit', 'Cannot craft this item right now.');
+      return;
+    }
+
+    const existingAffixIds = [
+      ...item.prefixes.map(affix => affix.definitionId),
+      ...item.suffixes.map(affix => affix.definitionId),
+    ];
+    const rolled = rollAdditionalAffix(
+      base,
+      item.slot,
+      item.itemLevel,
+      existingAffixIds,
+      item.prefixes.length,
+      item.suffixes.length,
+    );
+
+    if (!rolled) {
+      get().addLog('playerHit', `No eligible affixes for iLvl ${item.itemLevel}.`);
+      return;
+    }
+
+    const prefixes = rolled.type === 'prefix'
+      ? [...item.prefixes, rolled.affix]
+      : [...item.prefixes];
+    const suffixes = rolled.type === 'suffix'
+      ? [...item.suffixes, rolled.affix]
+      : [...item.suffixes];
+
+    const baseStats = item.rolledBaseStats ?? base.baseStats;
+    const craftedItem = {
+      ...item,
+      prefixes,
+      suffixes,
+      stats: computeItemStats(baseStats, prefixes, suffixes),
+    };
+
+    const updatedInventory = [...state.player.inventory];
+    updatedInventory[itemIndex] = craftedItem;
+
+    set({
+      player: {
+        ...state.player,
+        inventory: updatedInventory,
+        currency: {
+          ...state.player.currency,
+          augmentation: state.player.currency.augmentation - 1,
+        },
+      },
+    });
+
+    get().addLog('loot', `🟦 Augmented ${item.name}: added 1 ${rolled.type} modifier (iLvl ${item.itemLevel} pool).`);
   },
   
   equipItem: (itemId: string, slot?: EquipmentSlot) => {

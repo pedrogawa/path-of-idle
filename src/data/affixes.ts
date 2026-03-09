@@ -1,6 +1,7 @@
 import type { AffixDefinition } from '../types';
 import { bodyArmorPrefixes, bodyArmorSuffixes } from './affixes/bodyArmorAffixes';
 import { bootsPrefixes, bootsSuffixes } from './affixes/bootsAffixes';
+import { helmetPrefixes, helmetSuffixes } from './affixes/helmetAffixes';
 
 // ============================================
 // PREFIX DEFINITIONS
@@ -249,6 +250,7 @@ export const prefixes: AffixDefinition[] = [
     ],
   },
 
+  ...helmetPrefixes,
   ...bootsPrefixes,
   ...bodyArmorPrefixes,
 ];
@@ -370,6 +372,7 @@ export const suffixes: AffixDefinition[] = [
     ],
   },
 
+  ...helmetSuffixes,
   ...bootsSuffixes,
   ...bodyArmorSuffixes,
 
