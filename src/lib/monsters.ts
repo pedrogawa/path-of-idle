@@ -7,7 +7,7 @@ function generateMonsterId(): string {
 }
 
 const SPAWN_DISTANCE = 100;
-const MELEE_RANGE = 5;
+const MELEE_RANGE = 12;
 const BASE_MOVE_SPEED = 35;
 const ARENA_MIN = 6;
 const ARENA_MAX = 94;
@@ -312,41 +312,65 @@ export function stepMonsterTowardsPlayer(
 ): Monster {
   const obstacles = getArenaObstaclesForMap(mapId);
   const radius = monster.rarity === 'boss' ? 2.2 : 1.2;
+  const currentDistance = distanceToPlayerFrom(monster.arenaX, monster.arenaY);
+
+  // Hold position once in melee so monsters stop "pushing" through the player.
+  if (currentDistance <= MELEE_RANGE) {
+    return {
+      ...monster,
+      distance: currentDistance,
+    };
+  }
 
   const toPlayerX = PLAYER_ARENA_POSITION.x - monster.arenaX;
   const toPlayerY = PLAYER_ARENA_POSITION.y - monster.arenaY;
   const toPlayer = normalize(toPlayerX, toPlayerY);
-  const moveDistance = Math.max(0, monster.moveSpeed * deltaTime);
+  const desiredAdvance = Math.max(0, monster.moveSpeed * deltaTime);
+  const maxAdvanceWithoutEnteringMelee = Math.max(0, currentDistance - MELEE_RANGE);
+  const maxStepDistance = Math.min(desiredAdvance, maxAdvanceWithoutEnteringMelee);
 
-  const angleSteps = [0, Math.PI / 10, -Math.PI / 10, Math.PI / 6, -Math.PI / 6, Math.PI / 3, -Math.PI / 3, Math.PI / 2, -Math.PI / 2];
-  let best: { x: number; y: number; distance: number } | null = null;
-
-  for (const radians of angleSteps) {
-    const candidateDir = rotateVector(toPlayer.x, toPlayer.y, radians);
-    const candidateX = clampArenaPosition(monster.arenaX + candidateDir.x * moveDistance);
-    const candidateY = clampArenaPosition(monster.arenaY + candidateDir.y * moveDistance);
-    if (collidesWithAnyObstacle(candidateX, candidateY, radius, obstacles)) {
-      continue;
-    }
-
-    const candidateDistance = distanceToPlayerFrom(candidateX, candidateY);
-    if (!best || candidateDistance < best.distance) {
-      best = { x: candidateX, y: candidateY, distance: candidateDistance };
-    }
-  }
-
-  if (!best) {
+  if (maxStepDistance <= 0) {
     return {
       ...monster,
-      distance: getDistanceToPlayer(monster),
+      distance: currentDistance,
     };
+  }
+
+  const angleSteps = [0, Math.PI / 10, -Math.PI / 10, Math.PI / 6, -Math.PI / 6, Math.PI / 3, -Math.PI / 3, Math.PI / 2, -Math.PI / 2];
+  const stepAttempts = [1, 0.75, 0.5, 0.25, 0.1]
+    .map(multiplier => maxStepDistance * multiplier)
+    .filter(step => step > 0.01);
+
+  for (const stepDistance of stepAttempts) {
+    let best: { x: number; y: number; distance: number } | null = null;
+
+    for (const radians of angleSteps) {
+      const candidateDir = rotateVector(toPlayer.x, toPlayer.y, radians);
+      const candidateX = clampArenaPosition(monster.arenaX + candidateDir.x * stepDistance);
+      const candidateY = clampArenaPosition(monster.arenaY + candidateDir.y * stepDistance);
+      if (collidesWithAnyObstacle(candidateX, candidateY, radius, obstacles)) {
+        continue;
+      }
+
+      const candidateDistance = distanceToPlayerFrom(candidateX, candidateY);
+      if (!best || candidateDistance < best.distance) {
+        best = { x: candidateX, y: candidateY, distance: candidateDistance };
+      }
+    }
+
+    if (best) {
+      return {
+        ...monster,
+        arenaX: best.x,
+        arenaY: best.y,
+        distance: best.distance,
+      };
+    }
   }
 
   return {
     ...monster,
-    arenaX: best.x,
-    arenaY: best.y,
-    distance: best.distance,
+    distance: getDistanceToPlayer(monster),
   };
 }
 

@@ -22,7 +22,7 @@ import {
 import { canGemLevelUp, getGemNextLevelTotalExperience, getGemRequiredCharacterLevelForLevel } from '../lib/gems';
 import { getSkillRuntimeStats } from '../lib/skills';
 import { generateLoot } from '../lib/loot';
-import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, isInMeleeRange, stepMonsterTowardsPlayer } from '../lib/monsters';
+import { spawnMapMonster, spawnBoss, getNextPositionIndex, getBestTarget, getDistanceToPlayer, isInMeleeRange, stepMonsterTowardsPlayer } from '../lib/monsters';
 import { mapById, maps, bossById, skillById, starterSkillIds, getBuyableSkills, getSkillPurchaseCost, supportGemById } from '../data';
 
 let logIdCounter = 0;
@@ -803,9 +803,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const deadMonsterIds: string[] = [];
     let totalMonsterDamage = 0;
     
-    // Get the best target for player (rarity priority, then lowest HP, must be in range)
-    const targetMonster = getBestTarget(monsters);
-    const monstersInRange = monsters.filter(m => isInMeleeRange(m) && m.currentLife > 0);
+    const aliveMonsters = monsters.filter(m => m.currentLife > 0);
+    const monstersInRange = aliveMonsters.filter(m => isInMeleeRange(m));
+    const forcedEngagedMonster = monstersInRange.length === 0
+      ? aliveMonsters.reduce<typeof aliveMonsters[number] | null>((closest, monster) => {
+        if (!closest) return monster;
+        return getDistanceToPlayer(monster) < getDistanceToPlayer(closest) ? monster : closest;
+      }, null)
+      : null;
+    const engagedMonsters = forcedEngagedMonster ? [forcedEngagedMonster] : monstersInRange;
+
+    // Prefer normal in-range targeting, but force nearest monster if pathing deadlocks.
+    const targetMonster = getBestTarget(monsters) ?? forcedEngagedMonster;
     
     // ========== UPDATE SKILL COOLDOWNS ==========
     const updatedSkills = player.skills.map(skill => {
@@ -897,7 +906,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         }
         
         const maxTargets = runtime.aoeRadius;
-        const targets = monstersInRange.slice(0, maxTargets);
+        const targets = engagedMonsters.slice(0, maxTargets);
         
         for (const target of targets) {
           const damageToTarget = Math.round(skillDamage);

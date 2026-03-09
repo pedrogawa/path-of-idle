@@ -1,8 +1,11 @@
 import type { MonsterDefinition, BossDefinition, BossSkill } from '../types';
 import { drownedZombieLevelStats } from './monsterLevelData/drownedZombie';
+import { drippingDeadLevelStats } from './monsterLevelData/drippingDead';
 import { fireFuryLevelStats } from './monsterLevelData/fireFury';
+import { hailrakeLevelStats } from './monsterLevelData/hailrake';
 import { hillockLevelStats } from './monsterLevelData/hillock';
 import { hungryCorpseLevelStats } from './monsterLevelData/hungryCorpse';
+import { oozebackBloomLevelStats } from './monsterLevelData/oozebackBloom';
 import { cannibalLevelStats } from './monsterLevelData/cannibal';
 import { cannibalFireEaterLevelStats } from './monsterLevelData/cannibalFireEater';
 import { coconutCrabLevelStats } from './monsterLevelData/coconutCrab';
@@ -10,8 +13,11 @@ import { gravelEaterLevelStats } from './monsterLevelData/gravelEater';
 import { shoreCrabLevelStats } from './monsterLevelData/shoreCrab';
 import { spiderCrabLevelStats } from './monsterLevelData/spiderCrab';
 import { savageCrabLevelStats } from './monsterLevelData/savageCrab';
+import { rhoaMareLevelStats } from './monsterLevelData/rhoaMare';
 import { witheredHuskLevelStats } from './monsterLevelData/witheredHusk';
 import { sandSpitterLevelStats } from './monsterLevelData/sandSpitter';
+import { tercelRhoaLevelStats } from './monsterLevelData/tercelRhoa';
+import { tideStriderLevelStats } from './monsterLevelData/tideStrider';
 
 // ============================================
 // BOSS SKILLS
@@ -78,6 +84,48 @@ const fireFurySkills: BossSkill[] = [
     cooldown: 7,
     skillType: 'aoe',
     color: '#c53030',
+  },
+];
+
+const hailrakeSkills: BossSkill[] = [
+  {
+    id: 'hailShards',
+    name: 'Hail Shards',
+    description: 'Launches a burst of piercing ice shards',
+    damageMultiplier: 2.2,
+    cooldown: 4,
+    skillType: 'projectile',
+    color: '#63b3ed',
+  },
+  {
+    id: 'frozenSquall',
+    name: 'Frozen Squall',
+    description: 'Unleashes a chilling storm around the target',
+    damageMultiplier: 2.8,
+    cooldown: 7,
+    skillType: 'aoe',
+    color: '#3182ce',
+  },
+];
+
+const oozebackBloomSkills: BossSkill[] = [
+  {
+    id: 'oozeSlam',
+    name: 'Ooze Slam',
+    description: 'Crashes down with a heavy, muck-coated strike',
+    damageMultiplier: 2.2,
+    cooldown: 4,
+    skillType: 'slam',
+    color: '#6b8e23',
+  },
+  {
+    id: 'bloomSporeBurst',
+    name: 'Bloom Spore Burst',
+    description: 'Releases a toxic burst of spores',
+    damageMultiplier: 2.8,
+    cooldown: 7,
+    skillType: 'aoe',
+    color: '#2f855a',
   },
 ];
 
@@ -395,6 +443,17 @@ export const monsters: MonsterDefinition[] = [
     levelStats: sandSpitterLevelStats,
   },
   {
+    id: 'tideStrider',
+    name: 'Tide Strider',
+    baseLife: 24,
+    baseDamage: 6,
+    attackSpeed: 0.6667,
+    damageType: 'physical',
+    experienceReward: 27,
+    lootBonus: 1,
+    levelStats: tideStriderLevelStats,
+  },
+  {
     id: 'cannibal',
     name: 'Cannibal',
     baseLife: 22,
@@ -482,6 +541,39 @@ export const monsters: MonsterDefinition[] = [
     lootBonus: 1,
     levelStats: witheredHuskLevelStats,
   },
+  {
+    id: 'drippingDead',
+    name: 'Dripping Dead',
+    baseLife: 24,
+    baseDamage: 9,
+    attackSpeed: 0.4167,
+    damageType: 'physical',
+    experienceReward: 18,
+    lootBonus: 1,
+    levelStats: drippingDeadLevelStats,
+  },
+  {
+    id: 'tercelRhoa',
+    name: 'Tercel Rhoa',
+    baseLife: 28,
+    baseDamage: 8,
+    attackSpeed: 0.7168,
+    damageType: 'physical',
+    experienceReward: 32,
+    lootBonus: 1,
+    levelStats: tercelRhoaLevelStats,
+  },
+  {
+    id: 'rhoaMare',
+    name: 'Rhoa Mare',
+    baseLife: 15,
+    baseDamage: 5,
+    attackSpeed: 0.7168,
+    damageType: 'physical',
+    experienceReward: 24,
+    lootBonus: 1,
+    levelStats: rhoaMareLevelStats,
+  },
 ];
 
 // ============================================
@@ -520,6 +612,34 @@ export const bosses: BossDefinition[] = [
     guaranteedDrops: ['rustySword', 'leatherCap'],
     skills: fireFurySkills,
     levelStats: fireFuryLevelStats,
+  },
+  {
+    id: 'hailrake',
+    name: 'Hailrake',
+    title: 'Terror of the Tidal Island',
+    baseLife: 40,
+    baseDamage: 6,
+    attackSpeed: 0.5013,
+    damageType: 'cold',
+    experienceReward: 36,
+    lootBonus: 3,
+    guaranteedDrops: ['rustySword', 'leatherCap'],
+    skills: hailrakeSkills,
+    levelStats: hailrakeLevelStats,
+  },
+  {
+    id: 'oozebackBloom',
+    name: 'Oozeback Bloom',
+    title: 'Terror of the Mud Flats',
+    baseLife: 28,
+    baseDamage: 8,
+    attackSpeed: 0.7168,
+    damageType: 'physical',
+    experienceReward: 28,
+    lootBonus: 3,
+    guaranteedDrops: ['rustySword', 'leatherCap'],
+    skills: oozebackBloomSkills,
+    levelStats: oozebackBloomLevelStats,
   },
   {
     id: 'drownedCaptain',
